@@ -72,6 +72,12 @@ const visualCheckStep = z.object({
 	name: z.string(),
 	fullPage: z.boolean().default(false),
 	ignoreRegions: z.array(ignoreRegionSchema).optional(),
+	/** Allowed % of changed pixels before the check fails (0–90). */
+	tolerancePct: z.number().min(0).max(90).optional(),
+	/** CSS selectors hidden before capture (dynamic content). */
+	exclude: z.array(z.string()).optional(),
+	/** Capture just this element instead of the page. */
+	selector: z.string().optional(),
 });
 const aiStep = z.object({ type: z.literal('aiStep'), instruction: z.string() });
 const totpStep = z.object({ type: z.literal('totp'), locator: locatorSchema, secret: z.string() });

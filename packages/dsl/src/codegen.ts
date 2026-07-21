@@ -113,7 +113,13 @@ function stepToLine(s: Step): string {
 		case 'screenshot':
 			return `screenshot(${JSON.stringify({ name: s.name, fullPage: s.fullPage })})`;
 		case 'visualCheck':
-			return `visualCheck(${JSON.stringify(s.name)}, ${JSON.stringify({ fullPage: s.fullPage, ignoreRegions: s.ignoreRegions })})`;
+			return `visualCheck(${JSON.stringify(s.name)}, ${JSON.stringify({
+				fullPage: s.fullPage,
+				...(s.ignoreRegions ? { ignoreRegions: s.ignoreRegions } : {}),
+				...(s.tolerancePct !== undefined ? { tolerancePct: s.tolerancePct } : {}),
+				...(s.exclude ? { exclude: s.exclude } : {}),
+				...(s.selector !== undefined ? { selector: s.selector } : {}),
+			})})`;
 		case 'aiStep':
 			return `ai(${JSON.stringify(s.instruction)})`;
 		case 'totp':

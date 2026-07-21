@@ -201,9 +201,21 @@ function buildRunner(step: Step): CompiledStep {
 			return {
 				type: step.type,
 				run: async (page, ctx) => {
-					const image = await page.screenshot({ fullPage: step.fullPage });
+					// Hide dynamic elements before capture so they don't cause false diffs.
+					if (step.exclude?.length) {
+						await page.evaluate(
+							`(${JSON.stringify(step.exclude)}).forEach((s) => document.querySelectorAll(s).forEach((el) => (el.style.visibility = 'hidden')))`,
+						);
+					}
+					const image = step.selector
+						? await page.locator(step.selector).screenshot()
+						: await page.screenshot({ fullPage: step.fullPage });
 					if (!ctx.onVisualCheck) throw new Error('visualCheck requires a visual sink (worker only)');
-					await ctx.onVisualCheck(step.name, image, { fullPage: step.fullPage, ignoreRegions: step.ignoreRegions });
+					await ctx.onVisualCheck(step.name, image, {
+						fullPage: step.fullPage,
+						ignoreRegions: step.ignoreRegions,
+						tolerancePct: step.tolerancePct,
+					});
 				},
 			};
 		case 'aiStep':

@@ -114,6 +114,8 @@ export const baseline = sqliteTable('baseline', {
 	testId: text('test_id')
 		.notNull()
 		.references(() => test.id),
+	// baselines are tracked per browser × viewport × name
+	browser: text('browser').notNull().default('chromium'),
 	viewport: text('viewport').notNull(),
 	// visualCheck name — one baseline per (test, viewport, name)
 	name: text('name').notNull().default('default'),

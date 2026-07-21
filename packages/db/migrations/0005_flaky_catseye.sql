@@ -1,0 +1,1 @@
+ALTER TABLE `baseline` ADD `browser` text DEFAULT 'chromium' NOT NULL;

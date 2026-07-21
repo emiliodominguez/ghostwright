@@ -57,7 +57,7 @@ export type StepExpect = (target: StepLocator | StepPage) => StepAssertion;
 export type AiResolver = (instruction: string, page: StepPage) => Promise<StepLocator>;
 
 /** Sink for `visualCheck` screenshots — provided by the worker (T7). */
-export type VisualSink = (name: string, image: Buffer, opts: { fullPage: boolean; ignoreRegions?: IgnoreRegion[] }) => Promise<void>;
+export type VisualSink = (name: string, image: Buffer, opts: { fullPage: boolean; ignoreRegions?: IgnoreRegion[]; tolerancePct?: number }) => Promise<void>;
 
 export interface IgnoreRegion {
 	x1: number;

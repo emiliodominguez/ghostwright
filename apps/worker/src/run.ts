@@ -205,7 +205,7 @@ async function runAttempt(
 		baseUrl: job.baseUrl,
 		vars,
 		resolveVar,
-		onVisualCheck: makeVisualSink({ testId, viewport: job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
+		onVisualCheck: makeVisualSink({ testId, browser: 'chromium', viewport: settings.viewport ?? job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
 		totp: (name) => totpCodeForSecret(orgId, name),
 		resolveFile: (ref) => resolveUploadFile(ref, workDir),
 		ai: async (instruction, sp) => {

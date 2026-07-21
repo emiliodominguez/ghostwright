@@ -25,13 +25,25 @@ const DIFF_THRESHOLD_PCT = 0.1;
  * @param opts - run context (testId, viewport, runId) + a `pending` slot.
  * @returns a VisualSink for the DSL runtime context.
  */
-export function makeVisualSink(opts: { testId: string; viewport: string; runId: string; workDir: string; pending: { current?: VisualOutcome } }): VisualSink {
-	return async (name, image, { ignoreRegions }) => {
+export function makeVisualSink(opts: {
+	testId: string;
+	browser: string;
+	viewport: string;
+	runId: string;
+	workDir: string;
+	pending: { current?: VisualOutcome };
+}): VisualSink {
+	return async (name, image, { ignoreRegions, tolerancePct }) => {
 		const outcome: VisualOutcome = {};
 		opts.pending.current = outcome;
 
 		const existing = await db.query.baseline.findFirst({
-			where: and(eq(tables.baseline.testId, opts.testId), eq(tables.baseline.viewport, opts.viewport), eq(tables.baseline.name, name)),
+			where: and(
+				eq(tables.baseline.testId, opts.testId),
+				eq(tables.baseline.browser, opts.browser),
+				eq(tables.baseline.viewport, opts.viewport),
+				eq(tables.baseline.name, name),
+			),
 		});
 
 		const actualKey = `runs/${opts.runId}/visual/${name}.png`;
@@ -40,9 +52,9 @@ export function makeVisualSink(opts: { testId: string; viewport: string; runId: 
 
 		if (!existing) {
 			// Auto-adopt: this run's screenshot becomes the baseline.
-			const baselineKey = `baselines/${opts.testId}/${opts.viewport}/${name}.png`;
+			const baselineKey = `baselines/${opts.testId}/${opts.browser}/${opts.viewport}/${name}.png`;
 			await putObject(baselineKey, image, 'image/png');
-			await db.insert(tables.baseline).values({ testId: opts.testId, viewport: opts.viewport, name, imageKey: baselineKey });
+			await db.insert(tables.baseline).values({ testId: opts.testId, browser: opts.browser, viewport: opts.viewport, name, imageKey: baselineKey });
 			outcome.baselineKey = baselineKey;
 			outcome.adopted = true;
 			return;
@@ -70,8 +82,9 @@ export function makeVisualSink(opts: { testId: string; viewport: string; runId: 
 		outcome.diffPct = diffPct;
 		outcome.diffKey = await uploadFile(`runs/${opts.runId}/visual/${name}-diff.png`, diffPath, 'image/png');
 
-		if (diffPct > DIFF_THRESHOLD_PCT) {
-			throw new Error(`visual regression on "${name}": ${diffPct.toFixed(2)}% differ`);
+		const threshold = tolerancePct ?? DIFF_THRESHOLD_PCT;
+		if (diffPct > threshold) {
+			throw new Error(`visual regression on "${name}": ${diffPct.toFixed(2)}% differ (tolerance ${threshold}%)`);
 		}
 	};
 }

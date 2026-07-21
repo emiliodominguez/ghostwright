@@ -564,9 +564,44 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 			);
 		case 'visualCheck':
 			return (
-				<div>
-					<label class={label}>Name for this look</label>
-					<input class={field} value={step.name} placeholder="e.g. homepage" onInput={(e) => patch({ name: e.currentTarget.value })} />
+				<div class="space-y-2">
+					<div>
+						<label class={label}>Name for this look</label>
+						<input class={field} value={step.name} placeholder="e.g. homepage" onInput={(e) => patch({ name: e.currentTarget.value })} />
+					</div>
+					<div class="grid grid-cols-2 gap-2">
+						<div>
+							<label class={label}>Tolerance (% changed)</label>
+							<input
+								type="number"
+								min="0"
+								max="90"
+								step="0.1"
+								class={field}
+								value={step.tolerancePct ?? ''}
+								placeholder="0.1"
+								onInput={(e) => patch({ tolerancePct: e.currentTarget.value ? Number(e.currentTarget.value) : undefined } as Partial<Step>)}
+							/>
+						</div>
+						<div>
+							<label class={label}>Capture only (CSS, optional)</label>
+							<input
+								class={field}
+								value={step.selector ?? ''}
+								placeholder="#main"
+								onInput={(e) => patch({ selector: e.currentTarget.value || undefined } as Partial<Step>)}
+							/>
+						</div>
+					</div>
+					<div>
+						<label class={label}>Ignore these elements (CSS, comma-separated)</label>
+						<input
+							class={field}
+							value={(step.exclude ?? []).join(', ')}
+							placeholder=".timestamp, #ad-banner"
+							onInput={(e) => patch({ exclude: e.currentTarget.value.split(',').map((v) => v.trim()).filter(Boolean) } as Partial<Step>)}
+						/>
+					</div>
 				</div>
 			);
 		case 'wait':
