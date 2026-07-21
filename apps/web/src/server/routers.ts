@@ -1,6 +1,6 @@
 import { copyObject } from '@ghostwright/artifacts';
 import { db, tables } from '@ghostwright/db';
-import { describeStep, parseTest } from '@ghostwright/dsl';
+import { describeStep, parseTest, testSettingsSchema } from '@ghostwright/dsl';
 import { runQueue, type RunJob } from '@ghostwright/queue';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -40,6 +40,13 @@ export const appRouter = router({
 				const [version] = await db.insert(tables.testVersion).values({ testId: test.id, dsl: input.dsl }).returning();
 				await db.update(tables.test).set({ currentVersionId: version.id }).where(eq(tables.test.id, test.id));
 				return { id: test.id };
+			}),
+
+		updateSettings: publicProcedure
+			.input(z.object({ id: z.string(), settings: testSettingsSchema }))
+			.mutation(async ({ input }) => {
+				await db.update(tables.test).set({ settings: JSON.stringify(input.settings) }).where(eq(tables.test.id, input.id));
+				return { ok: true };
 			}),
 	}),
 

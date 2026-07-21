@@ -62,6 +62,7 @@ const dragAndDropStep = z.object({ type: z.literal('dragAndDrop'), from: locator
 const scrollStep = z.object({ type: z.literal('scroll'), locator: locatorSchema.optional() });
 const backStep = z.object({ type: z.literal('back') });
 const refreshStep = z.object({ type: z.literal('refresh') });
+const uploadStep = z.object({ type: z.literal('upload'), locator: locatorSchema, files: z.array(z.string()).min(1) });
 const extractStep = z.object({ type: z.literal('extract'), name: z.string().min(1), locator: locatorSchema });
 const extractJsStep = z.object({ type: z.literal('extractJs'), name: z.string().min(1), code: z.string() });
 const exitStep = z.object({ type: z.literal('exit'), pass: z.boolean().default(true) });
@@ -100,6 +101,7 @@ const stepVariants = z.discriminatedUnion('type', [
 	scrollStep,
 	backStep,
 	refreshStep,
+	uploadStep,
 	extractStep,
 	extractJsStep,
 	exitStep,

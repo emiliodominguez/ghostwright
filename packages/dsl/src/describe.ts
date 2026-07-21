@@ -80,6 +80,8 @@ export function describeStep(s: Step): string {
 			return 'Go back to the previous page';
 		case 'refresh':
 			return 'Refresh the page';
+		case 'upload':
+			return `Upload ${s.files.length} file${s.files.length === 1 ? '' : 's'} to ${describeLocator(s.locator)}`;
 		case 'extract':
 			return `Save the text of ${describeLocator(s.locator)} into "${s.name}"`;
 		case 'extractJs':

@@ -46,6 +46,7 @@ const ACTIONS: { type: Step['type']; icon: string; label: string; make: () => St
 	{ type: 'refresh', icon: '🔄', label: 'Refresh the page', make: () => ({ type: 'refresh' }) },
 	{ type: 'scroll', icon: '📜', label: 'Scroll', make: () => ({ type: 'scroll' }) },
 	{ type: 'dragAndDrop', icon: '🎯', label: 'Drag and drop', make: () => ({ type: 'dragAndDrop', from: { role: 'button' }, to: { role: 'button' } }) },
+	{ type: 'upload', icon: '📎', label: 'Upload a file', make: () => ({ type: 'upload', locator: { role: 'button' }, files: [''] }) },
 	{ type: 'extract', icon: '📤', label: 'Save text into a variable', make: () => ({ type: 'extract', name: '', locator: { role: 'heading' } }) },
 	{ type: 'extractJs', icon: '📥', label: 'Save a code result', make: () => ({ type: 'extractJs', name: '', code: 'return document.title;' }) },
 	{ type: 'exit', icon: '⏹️', label: 'Stop the test', make: () => ({ type: 'exit', pass: true }) },
@@ -459,6 +460,21 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 		case 'back':
 		case 'refresh':
 			return null;
+		case 'upload':
+			return (
+				<div class="space-y-2">
+					<ElementField locator={step.locator} onChange={setLoc} />
+					<div>
+						<label class={label}>File URL(s) to upload (comma-separated)</label>
+						<input
+							class={field}
+							value={step.files.join(', ')}
+							placeholder="https://example.com/sample.pdf"
+							onInput={(e) => patch({ files: e.currentTarget.value.split(',').map((v) => v.trim()).filter(Boolean) })}
+						/>
+					</div>
+				</div>
+			);
 		case 'extract':
 			return (
 				<div class="space-y-2">

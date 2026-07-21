@@ -29,6 +29,13 @@
       "when": 1784601740357,
       "tag": "0003_slow_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784606964652,
+      "tag": "0004_harsh_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

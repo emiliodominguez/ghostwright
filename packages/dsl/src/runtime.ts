@@ -18,6 +18,7 @@ export interface StepLocator {
 	textContent(): Promise<string | null>;
 	dragTo(target: StepLocator): Promise<void>;
 	scrollIntoViewIfNeeded(): Promise<void>;
+	setInputFiles(files: string | string[]): Promise<void>;
 }
 
 export interface StepPage {
@@ -73,6 +74,8 @@ export interface RunContext {
 	onVisualCheck?: VisualSink;
 	/** Resolve a named secret to a current TOTP code (worker only). */
 	totp?: (secret: string) => Promise<string>;
+	/** Resolve a file reference (URL or path) to a local path for uploads (worker only). */
+	resolveFile?: (ref: string) => Promise<string>;
 	/** Mutable per-run variable store; `setVar`/`extract` steps write here. */
 	vars?: Record<string, string>;
 	/** Fallback resolver for built-in/generated vars ({{timestamp}}, faker) — worker only. */

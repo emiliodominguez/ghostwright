@@ -16,6 +16,7 @@ function fakeLocator(tag: string, calls: string[]): StepLocator {
 		textContent: vi.fn(async () => `${tag}-text`),
 		dragTo: vi.fn(async () => void calls.push(`${tag}.dragTo`)),
 		scrollIntoViewIfNeeded: vi.fn(async () => void calls.push(`${tag}.scrollIntoView`)),
+		setInputFiles: vi.fn(async (f) => void calls.push(`${tag}.setInputFiles(${String(f)})`)),
 	};
 }
 

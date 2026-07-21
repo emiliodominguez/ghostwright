@@ -27,6 +27,7 @@ const BUILDER_KEYS = [
 	'scroll',
 	'back',
 	'refresh',
+	'upload',
 	'extract',
 	'extractJs',
 	'exit',
@@ -99,6 +100,8 @@ function stepToLine(s: Step): string {
 			return `back()`;
 		case 'refresh':
 			return `refresh()`;
+		case 'upload':
+			return `upload(${loc(s.locator)}, ${JSON.stringify(s.files)})`;
 		case 'extract':
 			return `extract(${JSON.stringify(s.name)}, ${loc(s.locator)})`;
 		case 'extractJs':
@@ -152,6 +155,7 @@ export function fromCode(code: string): Test {
 		scroll: (locator) => steps.push({ type: 'scroll', ...(locator ? { locator } : {}) }),
 		back: () => steps.push({ type: 'back' }),
 		refresh: () => steps.push({ type: 'refresh' }),
+		upload: (locator, files) => steps.push({ type: 'upload', locator, files }),
 		extract: (name, locator) => steps.push({ type: 'extract', name, locator }),
 		extractJs: (name, code) => steps.push({ type: 'extractJs', name, code }),
 		exit: (pass) => steps.push({ type: 'exit', pass }),

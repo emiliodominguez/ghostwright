@@ -155,6 +155,15 @@ function buildRunner(step: Step): CompiledStep {
 			return { type: step.type, run: async (page) => void (await page.goBack()) };
 		case 'refresh':
 			return { type: step.type, run: async (page) => void (await page.reload()) };
+		case 'upload':
+			return {
+				type: step.type,
+				run: async (page, ctx) => {
+					const refs = step.files.map((f) => iv(f, ctx));
+					const paths = ctx.resolveFile ? await Promise.all(refs.map((r) => ctx.resolveFile!(r))) : refs;
+					await resolveLocator(page, interpLoc(step.locator, ctx)).setInputFiles(paths);
+				},
+			};
 		case 'extract':
 			return {
 				type: step.type,

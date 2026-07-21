@@ -4,7 +4,20 @@ import { join } from 'node:path';
 import { aiEnabled, resolveStep, triageFailure } from '@ghostwright/ai';
 import { putObject, uploadFile } from '@ghostwright/artifacts';
 import { db, tables } from '@ghostwright/db';
-import { compile, ExitTest, parseTest, resolveLocator, type RunContext, type StepExpect, type StepLocator, type StepPage, type Test } from '@ghostwright/dsl';
+import {
+	compile,
+	ExitTest,
+	parseSettings,
+	parseTest,
+	resolveLocator,
+	type RunContext,
+	type StepExpect,
+	type StepLocator,
+	type StepPage,
+	type Test,
+	type TestSettings,
+} from '@ghostwright/dsl';
+import { writeFile } from 'node:fs/promises';
 import { createLogger } from '@ghostwright/otel/logger';
 import { recordRun, withRunSpan, withStepSpan } from '@ghostwright/otel';
 import { expect } from '@playwright/test';
@@ -25,6 +38,17 @@ type StepStatus = 'passed' | 'failed' | 'skipped';
 function parseViewport(v: string): { width: number; height: number } {
 	const [w, h] = v.split('x').map(Number);
 	return { width: w || 1280, height: h || 720 };
+}
+
+/** Resolve an upload reference to a local path: download http(s) URLs, pass paths through. */
+async function resolveUploadFile(ref: string, workDir: string): Promise<string> {
+	if (!/^https?:\/\//i.test(ref)) return ref;
+	const res = await fetch(ref);
+	if (!res.ok) throw new Error(`upload fetch failed (${res.status}) for ${ref}`);
+	const name = ref.split('/').pop()?.split('?')[0] || 'upload.bin';
+	const dest = join(workDir, `upload-${Date.now()}-${name}`);
+	await writeFile(dest, Buffer.from(await res.arrayBuffer()));
+	return dest;
 }
 
 async function tryUpload(key: string, path: string, contentType: string): Promise<string | undefined> {
@@ -69,10 +93,11 @@ export async function executeRun(job: RunJob): Promise<string> {
 	const project = test && (await db.query.project.findFirst({ where: eq(tables.project.id, test.projectId) }));
 	const orgId = project?.orgId ?? '';
 	const parsed = parseTest(JSON.parse(tv.dsl));
+	const settings = parseSettings(test?.settings);
 
 	// First attempt (inject captured login state if a login flow is bound).
 	let storageState = job.loginFlowId ? await loadLoginState(job.loginFlowId) : undefined;
-	let attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, job.runId, storageState);
+	let attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, job.runId, storageState);
 
 	// Re-auth: if we failed and landed on a login page, refresh the session and retry once.
 	// The run row stays "running" across this so watchers don't see the transient failure.
@@ -80,7 +105,13 @@ export async function executeRun(job: RunJob): Promise<string> {
 		log.info({ loginFlowId: job.loginFlowId }, 're-authenticating after login redirect');
 		await captureLoginState(job.loginFlowId);
 		storageState = await loadLoginState(job.loginFlowId);
-		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, attempt.runId, storageState);
+		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, attempt.runId, storageState);
+	}
+
+	// Auto-retry once on failure (cuts false positives) when the test opts in.
+	if (attempt.status === 'failed' && settings.retry) {
+		log.info({ runId: attempt.runId }, 'auto-retrying failed run once');
+		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, attempt.runId, storageState);
 	}
 
 	// Finalize the run row exactly once, then fire alerts.
@@ -119,10 +150,11 @@ async function runAttempt(
 	testId: string,
 	orgId: string,
 	testDsl: Test,
+	settings: TestSettings,
 	existingRunId: string | undefined,
 	storageState: string | undefined,
 ): Promise<AttemptResult & { runId: string }> {
-	const viewport = parseViewport(job.viewport ?? '1280x720');
+	const viewport = parseViewport(settings.viewport ?? job.viewport ?? '1280x720');
 
 	let runId: string;
 	if (existingRunId) {
@@ -141,15 +173,29 @@ async function runAttempt(
 
 	const workDir = await mkdtemp(join(tmpdir(), 'gw-run-'));
 	const browser = await chromium.launch({ headless: true });
+	// Accept-Language defaults from `language` unless the user set the header explicitly.
+	const headers = {
+		...(settings.language ? { 'Accept-Language': settings.language } : {}),
+		...(settings.headers ?? {}),
+	};
 	const context = await browser.newContext({
 		viewport,
 		recordVideo: { dir: join(workDir, 'video') },
 		recordHar: { path: join(workDir, 'run.har.zip'), content: 'attach', mode: 'full' },
+		...(settings.userAgent ? { userAgent: settings.userAgent } : {}),
+		...(settings.language ? { locale: settings.language } : {}),
+		...(settings.basicAuth ? { httpCredentials: settings.basicAuth } : {}),
+		...(Object.keys(headers).length ? { extraHTTPHeaders: headers } : {}),
 		...(storageState ? { storageState: JSON.parse(storageState) } : {}),
 	});
+	if (settings.elementTimeoutMs) context.setDefaultTimeout(settings.elementTimeoutMs);
 	await context.tracing.start({ screenshots: true, snapshots: true, sources: true, title: runId });
 	const page = await context.newPage();
 	const video = page.video();
+
+	// Fail the run on an uncaught page JS error when the test opts in.
+	const jsErrors: string[] = [];
+	if (settings.failOnJsError) page.on('pageerror', (e) => jsErrors.push(e.message));
 
 	const stepExpect: StepExpect = (target) => expect(target as never) as never;
 	const pendingVisual: { current?: VisualOutcome } = {};
@@ -161,6 +207,7 @@ async function runAttempt(
 		resolveVar,
 		onVisualCheck: makeVisualSink({ testId, viewport: job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
 		totp: (name) => totpCodeForSecret(orgId, name),
+		resolveFile: (ref) => resolveUploadFile(ref, workDir),
 		ai: async (instruction, sp) => {
 			// _snapshotForAI (ref-decorated, as @playwright/mcp uses) with ariaSnapshot fallback.
 			const pw = sp as unknown as { _snapshotForAI?: () => Promise<string>; locator: (s: string) => { ariaSnapshot: () => Promise<string> } };
@@ -238,9 +285,16 @@ async function runAttempt(
 			error: stepError,
 		});
 
+		if (settings.stepDelayMs) await page.waitForTimeout(settings.stepDelayMs);
 		if (stepStatus === 'failed' || stop) break;
 	}
 	});
+
+	// A page JS error fails an otherwise-passing run when fail-on-JS-error is set.
+	if (status === 'passed' && jsErrors.length > 0) {
+		status = 'failed';
+		runError = `page JS error: ${jsErrors[0]}`;
+	}
 
 	const finalUrl = page.url();
 	let screenshotKey: string | undefined;

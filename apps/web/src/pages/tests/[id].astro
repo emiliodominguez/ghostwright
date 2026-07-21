@@ -1,9 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import RunNow from '../../components/RunNow.tsx';
+import TestSettingsPanel from '../../components/TestSettings.tsx';
 import { createCaller } from '../../server/routers';
 import { runStatus } from '../../lib/status';
-import { describeStep, parseTest } from '@ghostwright/dsl';
+import { describeStep, parseSettings, parseTest } from '@ghostwright/dsl';
 
 const { id } = Astro.params;
 const caller = createCaller();
@@ -29,6 +30,10 @@ if (data.version) {
 		</div>
 		<RunNow client:load testId={data.test.id} />
 	</div>
+
+	<section class="mb-8">
+		<TestSettingsPanel client:load testId={data.test.id} initial={parseSettings(data.test.settings)} />
+	</section>
 
 	<section class="mb-10">
 		<h2 class="mb-3 text-sm font-semibold text-white/50">What this test does</h2>

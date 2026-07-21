@@ -61,6 +61,7 @@ describe('codegen round-trip', () => {
 				{ type: 'scroll', locator: { css: '#footer' } },
 				{ type: 'back' },
 				{ type: 'refresh' },
+				{ type: 'upload', locator: { css: 'input[type=file]' }, files: ['https://x.test/a.pdf'] },
 				{ type: 'extract', name: 'title', locator: { role: 'heading' } },
 				{ type: 'extractJs', name: 'n', code: 'return 1' },
 				{ type: 'exit', pass: true },

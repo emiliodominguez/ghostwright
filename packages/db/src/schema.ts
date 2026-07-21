@@ -45,6 +45,8 @@ export const test = sqliteTable('test', {
 	name: text('name').notNull(),
 	// current TestVersion pointer; plain text to avoid a circular FK with test_version
 	currentVersionId: text('current_version_id'),
+	// per-test run configuration (JSON: TestSettings from @ghostwright/dsl)
+	settings: text('settings'),
 	createdAt: createdAt(),
 });
 
