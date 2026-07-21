@@ -1,0 +1,1 @@
+ALTER TABLE `run` ADD `browser` text DEFAULT 'chromium' NOT NULL;

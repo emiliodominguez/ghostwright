@@ -23,7 +23,9 @@ import { createLogger } from '@ghostwright/otel/logger';
 import { recordRun, withRunSpan, withStepSpan } from '@ghostwright/otel';
 import { expect } from '@playwright/test';
 import { eq } from 'drizzle-orm';
-import { chromium } from 'playwright-core';
+import { chromium, firefox, webkit } from 'playwright-core';
+
+const ENGINES = { chromium, firefox, webkit };
 import type { RunJob } from '@ghostwright/queue';
 import { dispatchAlerts } from './alerts';
 import { captureLoginState, loadLoginState } from './login';
@@ -164,24 +166,34 @@ async function runAttempt(
 	storageState: string | undefined,
 ): Promise<AttemptResult & { runId: string }> {
 	const viewport = parseViewport(settings.viewport ?? job.viewport ?? '1280x720');
+	const browserName = job.browser ?? 'chromium';
+	const engine = ENGINES[browserName as keyof typeof ENGINES] ?? chromium;
 
 	let runId: string;
 	if (existingRunId) {
-		await db.update(tables.run).set({ status: 'running', startedAt: new Date() }).where(eq(tables.run.id, existingRunId));
+		await db.update(tables.run).set({ status: 'running', browser: browserName, startedAt: new Date() }).where(eq(tables.run.id, existingRunId));
 		// Clear any prior step rows (e.g. a failed attempt before re-auth) so the row reflects this attempt.
 		await db.delete(tables.stepResult).where(eq(tables.stepResult.runId, existingRunId));
 		runId = existingRunId;
 	} else {
 		const [row] = await db
 			.insert(tables.run)
-			.values({ testVersionId, status: 'running', viewport: job.viewport ?? '1280x720', startedAt: new Date() })
+			.values({ testVersionId, status: 'running', browser: browserName, viewport: job.viewport ?? '1280x720', startedAt: new Date() })
 			.returning();
 		runId = row.id;
 	}
-	log.info({ runId, steps: testDsl.steps.length, authed: Boolean(storageState) }, 'run started');
+	log.info({ runId, browser: browserName, steps: testDsl.steps.length, authed: Boolean(storageState) }, 'run started');
 
 	const workDir = await mkdtemp(join(tmpdir(), 'gw-run-'));
-	const browser = await chromium.launch({ headless: true });
+	let browser;
+	try {
+		browser = await engine.launch({ headless: true });
+	} catch (err) {
+		// e.g. the browser binary isn't installed — fail this run cleanly instead of hanging.
+		const message = `failed to launch ${browserName}: ${err instanceof Error ? err.message : String(err)}`;
+		await rm(workDir, { recursive: true, force: true });
+		return { runId, status: 'errored', error: message, finalUrl: '' };
+	}
 	// Accept-Language defaults from `language` unless the user set the header explicitly.
 	const headers = {
 		...(settings.language ? { 'Accept-Language': settings.language } : {}),
@@ -216,7 +228,7 @@ async function runAttempt(
 		baseUrl: job.baseUrl,
 		vars,
 		resolveVar,
-		onVisualCheck: makeVisualSink({ testId, browser: 'chromium', viewport: settings.viewport ?? job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
+		onVisualCheck: makeVisualSink({ testId, browser: browserName, viewport: settings.viewport ?? job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
 		totp: (name) => totpCodeForSecret(orgId, name),
 		resolveFile: (ref) => resolveUploadFile(ref, workDir),
 		ai: async (instruction, sp) => {

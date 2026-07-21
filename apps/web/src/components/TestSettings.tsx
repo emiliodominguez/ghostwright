@@ -17,6 +17,7 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 	function clean(): TestSettings {
 		const out: TestSettings = {};
 		if (s.viewport?.trim()) out.viewport = s.viewport.trim();
+		if (s.browsers?.length) out.browsers = s.browsers;
 		if (s.userAgent?.trim()) out.userAgent = s.userAgent.trim();
 		if (s.language?.trim()) out.language = s.language.trim();
 		if (s.basicAuth?.username || s.basicAuth?.password) out.basicAuth = { username: s.basicAuth.username ?? '', password: s.basicAuth.password ?? '' };
@@ -46,6 +47,25 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 			</button>
 			<Show when={open()}>
 				<div class="grid gap-3 border-t border-white/10 p-4 sm:grid-cols-2">
+					<div class="sm:col-span-2">
+						<label class={label}>Browsers (each adds a run)</label>
+						<div class="flex gap-4">
+							{(['chromium', 'firefox', 'webkit'] as const).map((b) => (
+								<label class="flex items-center gap-2 text-sm text-white/70">
+									<input
+										type="checkbox"
+										checked={(s.browsers ?? ['chromium']).includes(b)}
+										onChange={(e) => {
+											const cur = new Set(s.browsers ?? ['chromium']);
+											e.currentTarget.checked ? cur.add(b) : cur.delete(b);
+											setS('browsers', [...cur]);
+										}}
+									/>
+									{b}
+								</label>
+							))}
+						</div>
+					</div>
 					<div>
 						<label class={label}>Screen size</label>
 						<input class={field} value={s.viewport ?? ''} placeholder="1280x720" onInput={(e) => setS('viewport', e.currentTarget.value)} />

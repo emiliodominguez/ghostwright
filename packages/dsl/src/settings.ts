@@ -6,6 +6,8 @@ import { z } from 'zod';
  */
 export const testSettingsSchema = z.object({
 	viewport: z.string().optional(),
+	/** Browsers to run on; each adds a concurrent run (default chromium). */
+	browsers: z.array(z.enum(['chromium', 'firefox', 'webkit'])).optional(),
 	userAgent: z.string().optional(),
 	/** BCP-47 locale; sets navigator.language and the Accept-Language header. */
 	language: z.string().optional(),

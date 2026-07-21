@@ -80,6 +80,7 @@ export const run = sqliteTable('run', {
 	status: text('status', { enum: ['queued', 'running', 'passed', 'failed', 'errored'] })
 		.notNull()
 		.default('queued'),
+	browser: text('browser').notNull().default('chromium'),
 	viewport: text('viewport').notNull(),
 	traceKey: text('trace_key'),
 	videoKey: text('video_key'),

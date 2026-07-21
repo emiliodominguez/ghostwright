@@ -123,15 +123,20 @@ export const appRouter = router({
 				// Data-driven: one run per row, each seeded with the row's columns as variables.
 				const rows = test.dataJson ? (JSON.parse(test.dataJson) as Record<string, string>[]) : [];
 				const batches = rows.length > 0 ? rows : [undefined];
+				// Multi-browser: one run per browser × row (default chromium).
+				const settings = test.settings ? (JSON.parse(test.settings) as { browsers?: string[] }) : {};
+				const browsers = settings.browsers?.length ? settings.browsers : ['chromium'];
 				const ids: string[] = [];
-				for (const vars of batches) {
-					const [run] = await db
-						.insert(tables.run)
-						.values({ testVersionId: versionId, status: 'queued', viewport: input.viewport })
-						.returning();
-					const job: RunJob = { runId: run.id, testVersionId: versionId, viewport: input.viewport, baseUrl: input.baseUrl, loginFlowId: input.loginFlowId, vars };
-					await runQueue.add('run', job);
-					ids.push(run.id);
+				for (const browser of browsers) {
+					for (const vars of batches) {
+						const [run] = await db
+							.insert(tables.run)
+							.values({ testVersionId: versionId, status: 'queued', browser, viewport: input.viewport })
+							.returning();
+						const job: RunJob = { runId: run.id, testVersionId: versionId, viewport: input.viewport, baseUrl: input.baseUrl, loginFlowId: input.loginFlowId, browser, vars };
+						await runQueue.add('run', job);
+						ids.push(run.id);
+					}
 				}
 				return { id: ids[0], ids, count: ids.length };
 			}),

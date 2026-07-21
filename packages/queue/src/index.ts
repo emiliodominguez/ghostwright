@@ -20,6 +20,8 @@ export interface RunJob {
 	captureLoginState?: string;
 	viewport?: string;
 	baseUrl?: string;
+	/** Browser engine to run on: chromium | firefox | webkit (default chromium). */
+	browser?: string;
 	/** Seed variables for this run (one data-driven row → one job). */
 	vars?: Record<string, string>;
 }
