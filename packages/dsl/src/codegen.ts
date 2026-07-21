@@ -31,6 +31,7 @@ const BUILDER_KEYS = [
 	'extract',
 	'extractJs',
 	'exit',
+	'actionRef',
 ] as const;
 
 function loc(l: Locator): string {
@@ -108,6 +109,8 @@ function stepToLine(s: Step): string {
 			return `extractJs(${JSON.stringify(s.name)}, ${JSON.stringify(s.code)})`;
 		case 'exit':
 			return `exit(${s.pass})`;
+		case 'actionRef':
+			return `actionRef(${JSON.stringify(s.actionId)}${s.name !== undefined ? `, ${JSON.stringify(s.name)}` : ''})`;
 		case 'assertUrl':
 			return s.exact ? `assertUrl(${JSON.stringify(s.url)}, true)` : `assertUrl(${JSON.stringify(s.url)})`;
 		case 'screenshot':
@@ -165,6 +168,7 @@ export function fromCode(code: string): Test {
 		extract: (name, locator) => steps.push({ type: 'extract', name, locator }),
 		extractJs: (name, code) => steps.push({ type: 'extractJs', name, code }),
 		exit: (pass) => steps.push({ type: 'exit', pass }),
+		actionRef: (actionId, name) => steps.push({ type: 'actionRef', actionId, ...(name !== undefined ? { name } : {}) }),
 		assertUrl: (url, exact) => steps.push({ type: 'assertUrl', url, ...(exact ? { exact } : {}) }),
 		screenshot: (opts) => steps.push({ type: 'screenshot', ...(opts as object) }),
 		visualCheck: (name, opts) => steps.push({ type: 'visualCheck', name, ...(opts as object) }),

@@ -1,10 +1,26 @@
 import { copyObject } from '@ghostwright/artifacts';
 import { db, tables } from '@ghostwright/db';
-import { describeStep, parseTest, testSettingsSchema } from '@ghostwright/dsl';
+import { describeStep, expandActions, parseTest, testSettingsSchema, type Step } from '@ghostwright/dsl';
 import { runQueue, type RunJob } from '@ghostwright/queue';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { publicProcedure, router } from './trpc';
+
+/** Load a saved action's steps, for expanding live `actionRef` references. */
+async function loadActionSteps(actionId: string): Promise<Step[] | null> {
+	const a = await db.query.action.findFirst({ where: eq(tables.action.id, actionId) });
+	return a ? parseTest(JSON.parse(a.dsl)).steps : null;
+}
+
+/** Expand a test's DSL and describe every concrete step, in plain language. */
+export async function describeExpanded(dsl: string): Promise<string[]> {
+	try {
+		const steps = await expandActions(parseTest(JSON.parse(dsl)).steps, loadActionSteps);
+		return steps.map(describeStep);
+	} catch {
+		return [];
+	}
+}
 
 /** Ensure a default org+project exists so tests can be created without setup. */
 async function ensureDefaultProject(): Promise<string> {
@@ -55,16 +71,9 @@ export const appRouter = router({
 			const run = await db.query.run.findFirst({ where: eq(tables.run.id, input.id) });
 			if (!run) return null;
 			const steps = await db.select().from(tables.stepResult).where(eq(tables.stepResult.runId, input.id)).orderBy(tables.stepResult.idx);
-			// Plain-language description per step index, from the test version's DSL.
+			// Plain-language description per step index, from the test version's DSL (actions expanded).
 			const version = await db.query.testVersion.findFirst({ where: eq(tables.testVersion.id, run.testVersionId) });
-			let descriptions: string[] = [];
-			if (version) {
-				try {
-					descriptions = parseTest(JSON.parse(version.dsl)).steps.map(describeStep);
-				} catch {
-					descriptions = [];
-				}
-			}
+			const descriptions = version ? await describeExpanded(version.dsl) : [];
 			return { run, steps, descriptions };
 		}),
 
@@ -110,6 +119,16 @@ export const appRouter = router({
 			const [row] = await db.insert(tables.action).values({ projectId, name: input.name, dsl: input.dsl }).returning();
 			return { id: row.id };
 		}),
+		update: publicProcedure
+			.input(z.object({ id: z.string(), name: z.string().min(1).optional(), dsl: z.string().optional() }))
+			.mutation(async ({ input }) => {
+				if (input.dsl) parseTest(JSON.parse(input.dsl));
+				const patch: Record<string, string> = {};
+				if (input.name) patch.name = input.name;
+				if (input.dsl) patch.dsl = input.dsl;
+				await db.update(tables.action).set(patch).where(eq(tables.action.id, input.id));
+				return { ok: true };
+			}),
 		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
 			await db.delete(tables.action).where(eq(tables.action.id, input.id));
 			return { ok: true };

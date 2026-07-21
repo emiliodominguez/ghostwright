@@ -88,6 +88,8 @@ export function describeStep(s: Step): string {
 			return `Save a custom-code result into "${s.name}"`;
 		case 'exit':
 			return s.pass ? 'Stop the test here (pass)' : 'Stop the test here (fail)';
+		case 'actionRef':
+			return `Run the "${s.name ?? 'reusable'}" action`;
 		case 'assertUrl':
 			return `Check the web address ${s.exact ? 'is' : 'contains'} ${s.url}`;
 		case 'screenshot':

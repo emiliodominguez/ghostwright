@@ -7,6 +7,7 @@ import { db, tables } from '@ghostwright/db';
 import {
 	compile,
 	ExitTest,
+	expandActions,
 	parseSettings,
 	parseTest,
 	resolveLocator,
@@ -38,6 +39,12 @@ type StepStatus = 'passed' | 'failed' | 'skipped';
 function parseViewport(v: string): { width: number; height: number } {
 	const [w, h] = v.split('x').map(Number);
 	return { width: w || 1280, height: h || 720 };
+}
+
+/** Load a saved action's steps for expansion, or null if it's gone. */
+async function loadActionSteps(actionId: string) {
+	const a = await db.query.action.findFirst({ where: eq(tables.action.id, actionId) });
+	return a ? parseTest(JSON.parse(a.dsl)).steps : null;
 }
 
 /** Resolve an upload reference to a local path: download http(s) URLs, pass paths through. */
@@ -92,7 +99,9 @@ export async function executeRun(job: RunJob): Promise<string> {
 	const test = await db.query.test.findFirst({ where: eq(tables.test.id, tv.testId) });
 	const project = test && (await db.query.project.findFirst({ where: eq(tables.project.id, test.projectId) }));
 	const orgId = project?.orgId ?? '';
-	const parsed = parseTest(JSON.parse(tv.dsl));
+	const rawParsed = parseTest(JSON.parse(tv.dsl));
+	// Expand live action references to their current steps (edits to an action propagate here).
+	const parsed = { steps: await expandActions(rawParsed.steps, loadActionSteps) };
 	const settings = parseSettings(test?.settings);
 
 	// First attempt (inject captured login state if a login flow is bound).

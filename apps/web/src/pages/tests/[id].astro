@@ -2,9 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import RunNow from '../../components/RunNow.tsx';
 import TestSettingsPanel from '../../components/TestSettings.tsx';
-import { createCaller } from '../../server/routers';
+import { createCaller, describeExpanded } from '../../server/routers';
 import { runStatus } from '../../lib/status';
-import { describeStep, parseSettings, parseTest } from '@ghostwright/dsl';
+import { parseSettings } from '@ghostwright/dsl';
 
 const { id } = Astro.params;
 const caller = createCaller();
@@ -12,14 +12,7 @@ const data = id ? await caller.tests.get({ id }) : null;
 if (!data?.test) return Astro.redirect('/');
 const runs = await caller.runs.listByTest({ testId: data.test.id });
 
-let stepLines: string[] = [];
-if (data.version) {
-	try {
-		stepLines = parseTest(JSON.parse(data.version.dsl)).steps.map(describeStep);
-	} catch {
-		stepLines = [];
-	}
-}
+const stepLines: string[] = data.version ? await describeExpanded(data.version.dsl) : [];
 ---
 
 <Layout title={data.test.name}>

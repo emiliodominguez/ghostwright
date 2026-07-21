@@ -187,6 +187,13 @@ function buildRunner(step: Step): CompiledStep {
 					throw new ExitTest(step.pass);
 				},
 			};
+		case 'actionRef':
+			return {
+				type: step.type,
+				run: async () => {
+					throw new Error('actionRef must be expanded (via expandActions) before running');
+				},
+			};
 		case 'assertUrl':
 			return {
 				type: step.type,

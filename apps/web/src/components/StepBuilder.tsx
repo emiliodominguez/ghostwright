@@ -155,8 +155,13 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 		setSteps(produce((s) => s.push(make())));
 		setErr('');
 	}
-	/** Drop every step of a saved action into the current list, in order. */
-	function insertAction(a: SavedAction) {
+	/** Add a live reference to the action — edits to the action propagate to this test. */
+	function insertActionRef(a: SavedAction) {
+		setSteps(produce((s) => s.push({ type: 'actionRef', actionId: a.id, name: a.name } as Step)));
+		setErr('');
+	}
+	/** Copy the action's steps in as editable steps (a snapshot, not a live link). */
+	function insertActionCopy(a: SavedAction) {
 		try {
 			const parsed = parseTest(JSON.parse(a.dsl));
 			setSteps(produce((s) => s.push(...parsed.steps)));
@@ -320,14 +325,23 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 					<div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
 						<For each={actions()}>
 							{(a) => (
-								<button
-									onClick={() => insertAction(a)}
-									title={`Insert the "${a.name}" action`}
-									class="flex items-center gap-2 rounded-lg border border-violet-500/25 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/10"
-								>
-									<span class="text-base">⭐</span>
-									<span class="truncate">{a.name}</span>
-								</button>
+								<div class="flex items-stretch overflow-hidden rounded-lg border border-violet-500/25 bg-violet-500/[0.06] text-xs text-violet-200">
+									<button
+										onClick={() => insertActionRef(a)}
+										title={`Insert a live reference to "${a.name}"`}
+										class="flex flex-1 items-center gap-2 px-3 py-2 text-left transition hover:bg-violet-500/10"
+									>
+										<span class="text-base">⭐</span>
+										<span class="truncate">{a.name}</span>
+									</button>
+									<button
+										onClick={() => insertActionCopy(a)}
+										title="Insert an editable copy instead"
+										class="border-l border-violet-500/25 px-2 text-violet-300/70 transition hover:bg-violet-500/10 hover:text-violet-200"
+									>
+										copy
+									</button>
+								</div>
 							)}
 						</For>
 					</div>
@@ -460,6 +474,16 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 		case 'back':
 		case 'refresh':
 			return null;
+		case 'actionRef':
+			return (
+				<p class="text-xs text-white/40">
+					⭐ Live reference — runs the latest steps of this action. Edit it on the{' '}
+					<a href="/actions" class="text-violet-300 underline decoration-dotted">
+						Actions
+					</a>{' '}
+					page.
+				</p>
+			);
 		case 'upload':
 			return (
 				<div class="space-y-2">

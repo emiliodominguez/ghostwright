@@ -10,6 +10,7 @@ export {
 	type Test,
 } from './schema';
 export { compile, resolveLocator, ExitTest, type CompiledStep } from './compile';
+export { expandActions, type ActionLoader } from './expand';
 export { toCode, fromCode } from './codegen';
 export { describeStep, describeLocator } from './describe';
 export { interpolate, type VarLookup } from './interp';

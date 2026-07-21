@@ -66,6 +66,8 @@ const uploadStep = z.object({ type: z.literal('upload'), locator: locatorSchema,
 const extractStep = z.object({ type: z.literal('extract'), name: z.string().min(1), locator: locatorSchema });
 const extractJsStep = z.object({ type: z.literal('extractJs'), name: z.string().min(1), code: z.string() });
 const exitStep = z.object({ type: z.literal('exit'), pass: z.boolean().default(true) });
+// A live reference to a saved action; expanded to its steps at run time (edits propagate).
+const actionRefStep = z.object({ type: z.literal('actionRef'), actionId: z.string(), name: z.string().optional() });
 const screenshotStep = z.object({ type: z.literal('screenshot'), name: z.string().optional(), fullPage: z.boolean().default(false) });
 const visualCheckStep = z.object({
 	type: z.literal('visualCheck'),
@@ -111,6 +113,7 @@ const stepVariants = z.discriminatedUnion('type', [
 	extractStep,
 	extractJsStep,
 	exitStep,
+	actionRefStep,
 	screenshotStep,
 	visualCheckStep,
 	aiStep,
