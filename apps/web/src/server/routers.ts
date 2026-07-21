@@ -214,6 +214,21 @@ export const appRouter = router({
 		}),
 	}),
 
+	apiKeys: router({
+		list: publicProcedure.query(async () => {
+			return db.select({ id: tables.apiKey.id, name: tables.apiKey.name, createdAt: tables.apiKey.createdAt }).from(tables.apiKey);
+		}),
+		create: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input }) => {
+			const key = `gw_${crypto.randomUUID().replace(/-/g, '')}`;
+			const [row] = await db.insert(tables.apiKey).values({ name: input.name, key }).returning();
+			return { id: row.id, key };
+		}),
+		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+			await db.delete(tables.apiKey).where(eq(tables.apiKey.id, input.id));
+			return { ok: true };
+		}),
+	}),
+
 	alerts: router({
 		listByTest: publicProcedure.input(z.object({ testId: z.string() })).query(async ({ input }) => {
 			const test = await db.query.test.findFirst({ where: eq(tables.test.id, input.testId) });

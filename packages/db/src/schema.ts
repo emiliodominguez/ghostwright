@@ -177,6 +177,14 @@ export const action = sqliteTable('action', {
 	createdAt: createdAt(),
 });
 
+export const apiKey = sqliteTable('api_key', {
+	id: id(),
+	name: text('name').notNull(),
+	// the bearer token presented via ?apiKey= or Authorization: Bearer
+	key: text('key').notNull().unique(),
+	createdAt: createdAt(),
+});
+
 export const loginFlow = sqliteTable('login_flow', {
 	id: id(),
 	projectId: text('project_id')
