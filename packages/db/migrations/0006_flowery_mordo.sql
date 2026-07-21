@@ -1,0 +1,1 @@
+ALTER TABLE `test` ADD `data_json` text;

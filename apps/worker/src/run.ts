@@ -209,6 +209,8 @@ async function runAttempt(
 	const stepExpect: StepExpect = (target) => expect(target as never) as never;
 	const pendingVisual: { current?: VisualOutcome } = {};
 	const { vars, resolveVar } = makeVarStore();
+	// Seed data-driven row variables so {{column}} resolves for this run.
+	if (job.vars) Object.assign(vars, job.vars);
 	const ctx: RunContext = {
 		expect: stepExpect,
 		baseUrl: job.baseUrl,

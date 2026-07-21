@@ -22,6 +22,29 @@ export async function describeExpanded(dsl: string): Promise<string[]> {
 	}
 }
 
+/**
+ * Parse data-driven rows from a JSON array or CSV (first line = headers).
+ *
+ * @param text - pasted JSON or CSV.
+ * @returns an array of `{column: value}` rows (empty if the input is blank).
+ */
+export function parseDataRows(text: string): Record<string, string>[] {
+	const trimmed = text.trim();
+	if (!trimmed) return [];
+	if (trimmed.startsWith('[')) {
+		const arr = JSON.parse(trimmed) as Record<string, unknown>[];
+		return arr.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)])));
+	}
+	const lines = trimmed.split(/\r?\n/).filter((l) => l.trim());
+	if (lines.length < 2) return [];
+	const split = (l: string) => l.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+	const headers = split(lines[0]);
+	return lines.slice(1).map((line) => {
+		const cells = split(line);
+		return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? '']));
+	});
+}
+
 /** Ensure a default org+project exists so tests can be created without setup. */
 async function ensureDefaultProject(): Promise<string> {
 	const existing = await db.query.project.findFirst();
@@ -64,6 +87,13 @@ export const appRouter = router({
 				await db.update(tables.test).set({ settings: JSON.stringify(input.settings) }).where(eq(tables.test.id, input.id));
 				return { ok: true };
 			}),
+
+		// Attach data-driven rows from pasted CSV (headers on row 1) or a JSON array; empty clears it.
+		setData: publicProcedure.input(z.object({ id: z.string(), text: z.string() })).mutation(async ({ input }) => {
+			const rows = parseDataRows(input.text);
+			await db.update(tables.test).set({ dataJson: rows.length ? JSON.stringify(rows) : null }).where(eq(tables.test.id, input.id));
+			return { rows: rows.length };
+		}),
 	}),
 
 	runs: router({
@@ -89,20 +119,21 @@ export const appRouter = router({
 			.mutation(async ({ input }) => {
 				const test = await db.query.test.findFirst({ where: eq(tables.test.id, input.testId) });
 				if (!test?.currentVersionId) throw new Error('test has no current version');
-				// Create the run row up front (status queued) so the UI has an id to navigate to.
-				const [run] = await db
-					.insert(tables.run)
-					.values({ testVersionId: test.currentVersionId, status: 'queued', viewport: input.viewport })
-					.returning();
-				const job: RunJob = {
-					runId: run.id,
-					testVersionId: test.currentVersionId,
-					viewport: input.viewport,
-					baseUrl: input.baseUrl,
-					loginFlowId: input.loginFlowId,
-				};
-				await runQueue.add('run', job);
-				return { id: run.id };
+				const versionId = test.currentVersionId;
+				// Data-driven: one run per row, each seeded with the row's columns as variables.
+				const rows = test.dataJson ? (JSON.parse(test.dataJson) as Record<string, string>[]) : [];
+				const batches = rows.length > 0 ? rows : [undefined];
+				const ids: string[] = [];
+				for (const vars of batches) {
+					const [run] = await db
+						.insert(tables.run)
+						.values({ testVersionId: versionId, status: 'queued', viewport: input.viewport })
+						.returning();
+					const job: RunJob = { runId: run.id, testVersionId: versionId, viewport: input.viewport, baseUrl: input.baseUrl, loginFlowId: input.loginFlowId, vars };
+					await runQueue.add('run', job);
+					ids.push(run.id);
+				}
+				return { id: ids[0], ids, count: ids.length };
 			}),
 	}),
 

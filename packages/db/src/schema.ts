@@ -47,6 +47,8 @@ export const test = sqliteTable('test', {
 	currentVersionId: text('current_version_id'),
 	// per-test run configuration (JSON: TestSettings from @ghostwright/dsl)
 	settings: text('settings'),
+	// data-driven rows (JSON: Array<Record<string,string>>); one run per row when present
+	dataJson: text('data_json'),
 	createdAt: createdAt(),
 });
 

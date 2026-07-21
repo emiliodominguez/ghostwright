@@ -20,6 +20,8 @@ export interface RunJob {
 	captureLoginState?: string;
 	viewport?: string;
 	baseUrl?: string;
+	/** Seed variables for this run (one data-driven row → one job). */
+	vars?: Record<string, string>;
 }
 
 /** Shared producer handle — used by the API/scheduler to enqueue runs. */

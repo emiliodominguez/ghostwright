@@ -2,14 +2,12 @@
 {"message":"connected.","label":"vite","level":"info"}
 {"message":"Generated 0ms","label":"types","level":"info"}
 {"message":"connected.","label":"vite","level":"info"}
-{"message":" astro  v7.1.1 ready in 844 ms\n┃ Local    http://localhost:4321/\n┃ Network  http://192.168.1.29:4321/","label":"SKIP_FORMAT","level":"info"}
+{"message":"Re-optimizing dependencies because vite config has changed","label":"vite","level":"info"}
+{"message":" astro  v7.1.1 ready in 836 ms\n┃ Local    http://localhost:4321/\n┃ Network  http://192.168.1.29:4321/","label":"SKIP_FORMAT","level":"info"}
 {"message":"watching for file changes...","label":null,"level":"info"}
-{"message":"[200] /tests/00c6674c-05d5-479e-a25e-ad9a13d95eab 57ms","label":null,"level":"info"}
-{"message":"[200] / 20ms","label":null,"level":"info"}
-{"message":"[200] POST /api/trpc/actions.create 13ms","label":null,"level":"info"}
-{"message":"[200] POST /api/trpc/tests.create 15ms","label":null,"level":"info"}
-{"message":"[200] POST /api/trpc/runs.create 10ms","label":null,"level":"info"}
-{"message":"[200] /api/trpc/runs.get 36ms","label":null,"level":"info"}
-{"message":"[200] POST /api/trpc/actions.update 9ms","label":null,"level":"info"}
-{"message":"[200] POST /api/trpc/runs.create 17ms","label":null,"level":"info"}
-{"message":"[200] /api/trpc/runs.get 31ms","label":null,"level":"info"}
+{"message":"[200] /tests/00c6674c-05d5-479e-a25e-ad9a13d95eab 52ms","label":null,"level":"info"}
+{"message":"[200] / 21ms","label":null,"level":"info"}
+{"message":"[200] POST /api/trpc/tests.create 22ms","label":null,"level":"info"}
+{"message":"[200] POST /api/trpc/tests.setData 5ms","label":null,"level":"info"}
+{"message":"[200] POST /api/trpc/runs.create 18ms","label":null,"level":"info"}
+{"message":"[200] /api/trpc/runs.listByTest 23ms","label":null,"level":"info"}
