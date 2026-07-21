@@ -173,6 +173,8 @@ importers:
         specifier: ^3.1090.0
         version: 3.1090.0
 
+  packages/cli: {}
+
   packages/crypto: {}
 
   packages/db:

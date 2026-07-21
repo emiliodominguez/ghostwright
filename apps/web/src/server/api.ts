@@ -31,14 +31,17 @@ export async function resultJson(runId: string) {
 	const run = await db.query.run.findFirst({ where: eq(tables.run.id, runId) });
 	if (!run) return null;
 	const steps = await db.select().from(tables.stepResult).where(eq(tables.stepResult.runId, runId)).orderBy(tables.stepResult.idx);
+	const screenshotFailing = run.status === 'failed' && /visual regression/i.test(run.error ?? '');
 	return {
 		id: run.id,
 		passing: run.status === 'passed',
 		status: run.status,
+		screenshotPassing: !screenshotFailing,
+		screenshotFailing,
 		error: run.error,
 		startedAt: run.startedAt,
 		finishedAt: run.finishedAt,
-		steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, durationMs: s.durationMs, error: s.error })),
+		steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, durationMs: s.durationMs, diffPct: s.diffPct, error: s.error })),
 	};
 }
 
