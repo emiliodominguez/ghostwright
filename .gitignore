@@ -10,3 +10,6 @@ coverage/
 
 # generated (copied from playwright-core at build)
 apps/web/public/trace-viewer/
+
+# Astro generated
+.astro/
