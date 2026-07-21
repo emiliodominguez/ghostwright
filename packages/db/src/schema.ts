@@ -144,8 +144,12 @@ export const alert = sqliteTable('alert', {
 	projectId: text('project_id')
 		.notNull()
 		.references(() => project.id),
-	channel: text('channel', { enum: ['slack', 'email', 'webhook'] }).notNull(),
-	// channel-specific destination (webhook URL, email address, etc.)
+	channel: text('channel', { enum: ['slack', 'email', 'webhook', 'teams', 'pagerduty'] }).notNull(),
+	// when to fire: on failure only, on every run, or only when status changes
+	trigger: text('trigger', { enum: ['failure', 'always', 'change'] })
+		.notNull()
+		.default('failure'),
+	// channel-specific destination (webhook URL, email address, PagerDuty routing key, etc.)
 	target: text('target').notNull(),
 	createdAt: createdAt(),
 });

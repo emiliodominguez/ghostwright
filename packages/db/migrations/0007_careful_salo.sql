@@ -1,0 +1,1 @@
+ALTER TABLE `alert` ADD `trigger` text DEFAULT 'failure' NOT NULL;

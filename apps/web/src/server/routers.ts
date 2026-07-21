@@ -221,13 +221,27 @@ export const appRouter = router({
 			return db.select().from(tables.alert).where(eq(tables.alert.projectId, test.projectId));
 		}),
 		create: publicProcedure
-			.input(z.object({ testId: z.string(), channel: z.enum(['slack', 'email', 'webhook']), target: z.string().min(1) }))
+			.input(
+				z.object({
+					testId: z.string(),
+					channel: z.enum(['slack', 'email', 'webhook', 'teams', 'pagerduty']),
+					trigger: z.enum(['failure', 'always', 'change']).default('failure'),
+					target: z.string().min(1),
+				}),
+			)
 			.mutation(async ({ input }) => {
 				const test = await db.query.test.findFirst({ where: eq(tables.test.id, input.testId) });
 				if (!test) throw new Error('test not found');
-				const [row] = await db.insert(tables.alert).values({ projectId: test.projectId, channel: input.channel, target: input.target }).returning();
+				const [row] = await db
+					.insert(tables.alert)
+					.values({ projectId: test.projectId, channel: input.channel, trigger: input.trigger, target: input.target })
+					.returning();
 				return { id: row.id };
 			}),
+		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+			await db.delete(tables.alert).where(eq(tables.alert.id, input.id));
+			return { ok: true };
+		}),
 	}),
 });
 

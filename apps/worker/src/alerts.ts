@@ -1,8 +1,22 @@
 import { db, tables } from '@ghostwright/db';
 import { createLogger } from '@ghostwright/otel/logger';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 
 const log = createLogger('worker.alerts');
+
+/** The status of the most recent prior run for a test, for change-detection. */
+async function previousStatus(testId: string, currentRunId: string): Promise<string | undefined> {
+	const versions = await db.select({ id: tables.testVersion.id }).from(tables.testVersion).where(eq(tables.testVersion.testId, testId));
+	const ids = versions.map((v) => v.id);
+	if (!ids.length) return undefined;
+	const prev = await db
+		.select({ status: tables.run.status })
+		.from(tables.run)
+		.where(and(inArray(tables.run.testVersionId, ids), ne(tables.run.id, currentRunId)))
+		.orderBy(desc(tables.run.createdAt))
+		.limit(1);
+	return prev[0]?.status;
+}
 
 /**
  * Deliver alerts for a finished run to every channel configured on its project.
@@ -15,33 +29,54 @@ const log = createLogger('worker.alerts');
  * @param error - failure message, if any.
  */
 export async function dispatchAlerts(runId: string, testVersionId: string, status: string, error?: string): Promise<void> {
-	if (status !== 'failed' && status !== 'errored') return;
-
 	const tv = await db.query.testVersion.findFirst({ where: eq(tables.testVersion.id, testVersionId) });
 	if (!tv) return;
 	const test = await db.query.test.findFirst({ where: eq(tables.test.id, tv.testId) });
 	if (!test) return;
 	const alerts = await db.select().from(tables.alert).where(eq(tables.alert.projectId, test.projectId));
+	if (!alerts.length) return;
 
-	const text = `❌ Ghostwright: test "${test.name}" ${status}${error ? ` — ${error.split('\n')[0]}` : ''}`;
+	const failed = status === 'failed' || status === 'errored';
+	const prev = await previousStatus(test.id, runId);
+	const changed = prev !== undefined && prev !== status;
+
+	const emoji = failed ? '❌' : '✅';
+	const text = `${emoji} Ghostwright: test "${test.name}" ${status}${error ? ` — ${error.split('\n')[0]}` : ''}`;
 	const dashUrl = `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:4321'}/runs/${runId}`;
 
 	await Promise.all(
 		alerts.map(async (a) => {
+			// PagerDuty always maintains incident state (trigger on fail, resolve on pass).
+			const shouldFire = a.channel === 'pagerduty' || (a.trigger === 'always' ? true : a.trigger === 'change' ? changed : failed);
+			if (!shouldFire) return;
 			try {
 				if (a.channel === 'slack') {
 					await postJson(a.target, { text: `${text}\n${dashUrl}` });
 				} else if (a.channel === 'webhook') {
-					await postJson(a.target, { event: 'run.failed', runId, test: test.name, status, error, url: dashUrl });
+					await postJson(a.target, { event: failed ? 'run.failed' : 'run.passed', runId, test: test.name, status, error, url: dashUrl });
+				} else if (a.channel === 'teams') {
+					await postJson(a.target, { title: 'Ghostwright', text: `${text}\n\n[View run](${dashUrl})` });
+				} else if (a.channel === 'pagerduty') {
+					await pagerDuty(a.target, failed, test.id, test.name, error, dashUrl);
 				} else if (a.channel === 'email') {
 					await sendEmail(a.target, text, dashUrl);
 				}
-				log.info({ runId, channel: a.channel }, 'alert delivered');
+				log.info({ runId, channel: a.channel, trigger: a.trigger }, 'alert delivered');
 			} catch (err) {
 				log.warn({ runId, channel: a.channel, err: err instanceof Error ? err.message : String(err) }, 'alert delivery failed');
 			}
 		}),
 	);
+}
+
+/** PagerDuty Events API v2 — trigger an incident on failure, resolve it on pass (deduped per test). */
+async function pagerDuty(routingKey: string, failed: boolean, testId: string, testName: string, error: string | undefined, url: string): Promise<void> {
+	await postJson('https://events.pagerduty.com/v2/enqueue', {
+		routing_key: routingKey,
+		event_action: failed ? 'trigger' : 'resolve',
+		dedup_key: `ghostwright-${testId}`,
+		payload: { summary: `Ghostwright: ${testName} ${failed ? 'failed' : 'recovered'}${error ? ` — ${error.split('\n')[0]}` : ''}`, source: url, severity: 'error' },
+	});
 }
 
 async function postJson(url: string, body: unknown): Promise<void> {
