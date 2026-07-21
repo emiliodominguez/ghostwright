@@ -1,0 +1,28 @@
+{
+	"name": "@ghostwright/mcp",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ghostwright-mcp": "./dist/stdio.js"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts src/stdio.ts --format esm --dts --clean",
+		"typecheck": "tsc --noEmit",
+		"dev": "tsx src/stdio.ts"
+	},
+	"dependencies": {
+		"@ghostwright/db": "workspace:*",
+		"@ghostwright/dsl": "workspace:*",
+		"@ghostwright/queue": "workspace:*",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"drizzle-orm": "^0.45.2",
+		"zod": "^4.4.3"
+	}
+}

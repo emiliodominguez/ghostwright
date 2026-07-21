@@ -1,0 +1,33 @@
+{
+	"name": "@ghostwright/web",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"prepare-assets": "node scripts/copy-trace-viewer.mjs",
+		"dev": "node scripts/copy-trace-viewer.mjs && astro dev",
+		"build": "node scripts/copy-trace-viewer.mjs && astro build",
+		"start": "node ./dist/server/entry.mjs",
+		"typecheck": "astro check"
+	},
+	"dependencies": {
+		"@astrojs/node": "^11.0.2",
+		"@astrojs/solid-js": "^7.0.1",
+		"@ghostwright/artifacts": "workspace:*",
+		"@ghostwright/db": "workspace:*",
+		"@ghostwright/dsl": "workspace:*",
+		"@ghostwright/queue": "workspace:*",
+		"@tailwindcss/vite": "^4.3.3",
+		"@trpc/client": "^11.18.0",
+		"@trpc/server": "^11.18.0",
+		"astro": "^7.1.1",
+		"drizzle-orm": "^0.45.2",
+		"monaco-editor": "^0.55.1",
+		"solid-js": "^1.9.14",
+		"tailwindcss": "^4.3.3",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"playwright-core": "^1.61.1"
+	}
+}

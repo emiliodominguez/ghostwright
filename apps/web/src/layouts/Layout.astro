@@ -1,0 +1,39 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	title?: string;
+}
+const { title = 'Ghostwright' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+	</head>
+	<body class="min-h-screen">
+		<header class="border-b border-white/10">
+			<div class="mx-auto flex max-w-5xl items-center gap-3 px-6 py-4">
+				<a href="/" class="flex items-center gap-2 font-semibold tracking-tight transition hover:opacity-80">
+					<span class="text-lg">👻</span>
+					<span>Ghostwright</span>
+				</a>
+				<span class="hidden text-xs text-white/40 sm:inline">watch your app, without writing code</span>
+				<nav class="ml-auto flex items-center gap-2">
+					<a href="/actions" class="rounded-lg px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white/90">
+						Actions
+					</a>
+					<a href="/" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/25 hover:bg-white/[0.05]">
+						+ New test
+					</a>
+				</nav>
+			</div>
+		</header>
+		<main class="mx-auto max-w-5xl px-6 py-10">
+			<slot />
+		</main>
+	</body>
+</html>

@@ -1,0 +1,80 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import RunNow from '../../components/RunNow.tsx';
+import { createCaller } from '../../server/routers';
+import { runStatus } from '../../lib/status';
+import { describeStep, parseTest } from '@ghostwright/dsl';
+
+const { id } = Astro.params;
+const caller = createCaller();
+const data = id ? await caller.tests.get({ id }) : null;
+if (!data?.test) return Astro.redirect('/');
+const runs = await caller.runs.listByTest({ testId: data.test.id });
+
+let stepLines: string[] = [];
+if (data.version) {
+	try {
+		stepLines = parseTest(JSON.parse(data.version.dsl)).steps.map(describeStep);
+	} catch {
+		stepLines = [];
+	}
+}
+---
+
+<Layout title={data.test.name}>
+	<div class="mb-8 flex items-center justify-between gap-4">
+		<div>
+			<a href="/" class="text-xs text-white/40 hover:text-white/70">← all tests</a>
+			<h1 class="mt-1 text-2xl font-semibold tracking-tight">{data.test.name}</h1>
+		</div>
+		<RunNow client:load testId={data.test.id} />
+	</div>
+
+	<section class="mb-10">
+		<h2 class="mb-3 text-sm font-semibold text-white/50">What this test does</h2>
+		{
+			stepLines.length === 0 ? (
+				<p class="text-sm text-white/40">No steps.</p>
+			) : (
+				<ol class="space-y-2">
+					{stepLines.map((line, i) => (
+						<li class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+							<span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white/60">
+								{i + 1}
+							</span>
+							<span class="pt-0.5 text-sm text-white/85">{line}</span>
+						</li>
+					))}
+				</ol>
+			)
+		}
+	</section>
+
+	<section>
+		<h2 class="mb-3 text-sm font-semibold text-white/50">Recent runs</h2>
+		{
+			runs.length === 0 ? (
+				<p class="text-sm text-white/40">No runs yet. Hit “Run now” to try it.</p>
+			) : (
+				<ul class="space-y-2">
+					{runs.map((r) => {
+						const s = runStatus(r.status);
+						return (
+							<li>
+								<a
+									href={`/runs/${r.id}`}
+									class="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm transition hover:border-white/25 hover:bg-white/[0.05]"
+								>
+									<span class="text-white/50">
+										{new Date(r.createdAt).toLocaleString()}
+									</span>
+									<span class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.badge}`}>{s.label}</span>
+								</a>
+							</li>
+						);
+					})}
+				</ul>
+			)
+		}
+	</section>
+</Layout>

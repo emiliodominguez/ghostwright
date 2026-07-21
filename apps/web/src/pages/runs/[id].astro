@@ -1,0 +1,102 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ApproveBaseline from '../../components/ApproveBaseline.tsx';
+import { createCaller } from '../../server/routers';
+import { runStatus, stepStatus } from '../../lib/status';
+
+const { id } = Astro.params;
+const data = id ? await createCaller().runs.get({ id }) : null;
+if (!data?.run) return Astro.redirect('/');
+const { run, steps, descriptions } = data;
+const inProgress = run.status === 'queued' || run.status === 'running';
+const traceSrc = run.traceKey ? `/trace-viewer/index.html?trace=${encodeURIComponent('/artifacts/' + run.traceKey)}` : null;
+const triage = run.triage ? (JSON.parse(run.triage) as { summary: string; likelyCause: string; suggestedFix: string }) : null;
+const status = runStatus(run.status);
+---
+
+<Layout title={`Run ${run.id.slice(0, 8)}`}>
+	<div class="mb-6 flex items-center gap-3">
+		<a href="/" class="text-xs text-white/40 hover:text-white/70">← home</a>
+		<h1 class="text-sm font-medium text-white/50">Test result</h1>
+		<span class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.badge}`}>{status.label}</span>
+	</div>
+
+	{inProgress && <p class="mb-6 text-sm text-sky-300">Running your test — this page updates itself…</p>}
+	{run.error && <pre class="mb-6 overflow-x-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 font-mono text-xs text-red-300">{run.error}</pre>}
+
+	{
+		triage && (
+			<section class="mb-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
+				<h2 class="mb-2 flex items-center gap-2 text-sm font-semibold text-violet-300">✦ AI triage</h2>
+				<p class="mb-2 text-sm text-white/80">{triage.summary}</p>
+				<dl class="space-y-1 text-xs text-white/60">
+					<div><dt class="inline font-medium text-white/50">Likely cause: </dt><dd class="inline">{triage.likelyCause}</dd></div>
+					<div><dt class="inline font-medium text-white/50">Suggested fix: </dt><dd class="inline">{triage.suggestedFix}</dd></div>
+				</dl>
+			</section>
+		)
+	}
+
+	<section class="mb-8">
+		<h2 class="mb-3 text-sm font-semibold text-white/50">Steps</h2>
+		<ul class="space-y-3">
+			{
+				steps.map((s) => {
+					const st = stepStatus(s.status);
+					return (
+					<li class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+						<div class="mb-2 flex items-center gap-3 text-sm">
+							<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white/60">{s.idx + 1}</span>
+							<span class="flex-1 text-white/85">{descriptions[s.idx] ?? s.type}</span>
+							<span class={`shrink-0 text-xs font-medium ${st.cls}`}>{st.label}</span>
+							{s.durationMs != null && <span class="shrink-0 text-xs text-white/30">{s.durationMs}ms</span>}
+						</div>
+						{s.error && <p class="mb-2 font-mono text-xs text-red-300">{s.error}</p>}
+						{s.baselineKey ? (
+							<div>
+								<div class="mb-2 flex items-center gap-3 text-xs text-white/50">
+									<span>visual diff{s.diffPct != null ? `: ${s.diffPct.toFixed(2)}% changed` : ' — baseline adopted'}</span>
+									{s.diffKey && <ApproveBaseline client:load runId={run.id} stepIdx={s.idx} />}
+								</div>
+								<div class="grid grid-cols-3 gap-2">
+									<figure>
+										<figcaption class="mb-1 text-[10px] uppercase text-white/30">baseline</figcaption>
+										<img src={`/artifacts/${s.baselineKey}`} alt="baseline" class="w-full rounded border border-white/10" loading="lazy" />
+									</figure>
+									<figure>
+										<figcaption class="mb-1 text-[10px] uppercase text-white/30">actual</figcaption>
+										{s.screenshotKey && <img src={`/artifacts/${s.screenshotKey}`} alt="actual" class="w-full rounded border border-white/10" loading="lazy" />}
+									</figure>
+									<figure>
+										<figcaption class="mb-1 text-[10px] uppercase text-white/30">diff</figcaption>
+										{s.diffKey ? (
+											<img src={`/artifacts/${s.diffKey}`} alt="diff" class="w-full rounded border border-red-500/30" loading="lazy" />
+										) : (
+											<div class="flex h-full items-center justify-center rounded border border-white/10 text-[10px] text-white/30">no diff</div>
+										)}
+									</figure>
+								</div>
+							</div>
+						) : (
+							s.screenshotKey && (
+								<img src={`/artifacts/${s.screenshotKey}`} alt={`step ${s.idx}`} class="max-h-48 rounded border border-white/10" loading="lazy" />
+							)
+						)}
+					</li>
+					);
+				})
+			}
+		</ul>
+	</section>
+
+	{
+		traceSrc && (
+			<section>
+				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Trace</h2>
+				<iframe src={traceSrc} class="h-[600px] w-full rounded-lg border border-white/10 bg-white" title="Playwright trace" />
+			</section>
+		)
+	}
+
+	{inProgress && <script is:inline>setTimeout(() => location.reload(), 2000);</script>}
+</Layout>

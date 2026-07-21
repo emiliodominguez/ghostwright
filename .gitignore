@@ -1,0 +1,12 @@
+.plans/
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+infra/data/
+coverage/
+.DS_Store
+
+# generated (copied from playwright-core at build)
+apps/web/public/trace-viewer/

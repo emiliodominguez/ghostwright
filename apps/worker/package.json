@@ -1,0 +1,31 @@
+{
+	"name": "@ghostwright/worker",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --clean",
+		"typecheck": "tsc --noEmit",
+		"dev": "tsx src/index.ts",
+		"demo": "tsx src/enqueue-demo.ts"
+	},
+	"dependencies": {
+		"@ghostwright/ai": "workspace:*",
+		"@ghostwright/artifacts": "workspace:*",
+		"@ghostwright/crypto": "workspace:*",
+		"@ghostwright/db": "workspace:*",
+		"@ghostwright/dsl": "workspace:*",
+		"@ghostwright/otel": "workspace:*",
+		"@ghostwright/queue": "workspace:*",
+		"@playwright/test": "^1.61.1",
+		"bullmq": "^5.80.9",
+		"drizzle-orm": "^0.45.2",
+		"nodemailer": "^9.0.3",
+		"odiff-bin": "^4.3.8",
+		"otplib": "^13.4.1",
+		"playwright-core": "^1.61.1"
+	},
+	"devDependencies": {
+		"@types/nodemailer": "^8.0.1"
+	}
+}

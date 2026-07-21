@@ -1,0 +1,25 @@
+{
+	"name": "@ghostwright/db",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts --clean",
+		"typecheck": "tsc --noEmit",
+		"generate": "drizzle-kit generate",
+		"migrate": "tsx src/migrate.ts"
+	},
+	"dependencies": {
+		"@libsql/client": "^0.17.4",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"drizzle-kit": "^0.31.10"
+	}
+}

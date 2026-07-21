@@ -1,0 +1,31 @@
+{
+	"name": "@ghostwright/otel",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./logger": {
+			"types": "./dist/logger.d.ts",
+			"import": "./dist/logger.js"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts src/logger.ts --format esm --dts --clean",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@opentelemetry/api": "^1.9.1",
+		"@opentelemetry/auto-instrumentations-node": "^0.78.0",
+		"@opentelemetry/exporter-metrics-otlp-http": "^0.220.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
+		"@opentelemetry/resources": "^2.9.0",
+		"@opentelemetry/sdk-metrics": "^2.9.0",
+		"@opentelemetry/sdk-node": "^0.220.0",
+		"@opentelemetry/semantic-conventions": "^1.43.0",
+		"pino": "^10.3.1"
+	}
+}

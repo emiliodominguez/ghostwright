@@ -1,0 +1,18 @@
+{"message":"Enabling sessions with filesystem storage","label":"@astrojs/node","level":"info"}
+{"message":"connected.","label":"vite","level":"info"}
+{"message":"Generated 0ms","label":"types","level":"info"}
+{"message":"connected.","label":"vite","level":"info"}
+{"message":"Re-optimizing dependencies because vite config has changed","label":"vite","level":"info"}
+{"message":" astro  v7.1.1 ready in 874 ms\n┃ Local    http://localhost:4321/\n┃ Network  http://192.168.1.29:4321/","label":"SKIP_FORMAT","level":"info"}
+{"message":"watching for file changes...","label":null,"level":"info"}
+{"message":"[200] / 39ms","label":null,"level":"info"}
+{"message":"[200] /api/trpc/actions.list 13ms","label":null,"level":"info"}
+{"message":"[200] / 19ms","label":null,"level":"info"}
+{"message":"[200] POST /api/trpc/tests.create 28ms","label":null,"level":"info"}
+{"message":"[200] POST /api/trpc/runs.create 17ms","label":null,"level":"info"}
+{"message":"[404] /sw.js 4ms","label":null,"level":"info"}
+{"message":"[200] /api/trpc/runs.get 19ms","label":null,"level":"info"}
+{"message":"[200] / 9ms","label":null,"level":"info"}
+{"message":"[200] /api/trpc/actions.list 12ms","label":null,"level":"info"}
+{"message":"[200] / 10ms","label":null,"level":"info"}
+{"message":"[200] /api/trpc/actions.list 14ms","label":null,"level":"info"}
