@@ -101,7 +101,10 @@ export default function Select(props: Props) {
 		if (trigger.contains(t) || t.closest?.(`[data-select="${id}"]`)) return;
 		closeMenu();
 	}
-	function onViewportChange() {
+	function onViewportChange(e?: Event) {
+		// Ignore scrolling within the menu's own list; only background scroll/resize dismisses it.
+		const t = e?.target;
+		if (t instanceof HTMLElement && t.closest('[data-select]')) return;
 		if (open()) closeMenu();
 	}
 	createEffect(() => {

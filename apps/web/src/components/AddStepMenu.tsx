@@ -87,7 +87,10 @@ export default function AddStepMenu(props: { onPick: (make: () => Step) => void 
 		if (trigger.contains(t) || t.closest?.('[data-addstep-menu]')) return;
 		close();
 	}
-	function onViewportChange() {
+	function onViewportChange(e?: Event) {
+		// Ignore scrolling within the menu's own list; only background scroll/resize dismisses it.
+		const t = e?.target;
+		if (t instanceof HTMLElement && t.closest('[data-addstep-menu]')) return;
 		if (open()) close();
 	}
 	createEffect(() => {
