@@ -20,13 +20,27 @@ export interface StepLocator {
 	scrollIntoViewIfNeeded(): Promise<void>;
 	setInputFiles(files: string | string[]): Promise<void>;
 	count(): Promise<number>;
+	nth(index: number): StepLocator;
+}
+
+/** Options for text-based getBy* locators. */
+export interface ByTextOpts {
+	exact?: boolean;
 }
 
 export interface StepPage {
 	goto(url: string, opts?: unknown): Promise<unknown>;
-	getByRole(role: string, opts?: { name?: string }): StepLocator;
+	getByRole(role: string, opts?: { name?: string; exact?: boolean }): StepLocator;
+	getByText(text: string, opts?: ByTextOpts): StepLocator;
+	getByPlaceholder(text: string, opts?: ByTextOpts): StepLocator;
+	getByLabel(text: string, opts?: ByTextOpts): StepLocator;
+	getByTestId(testId: string): StepLocator;
+	getByAltText(text: string, opts?: ByTextOpts): StepLocator;
+	getByTitle(text: string, opts?: ByTextOpts): StepLocator;
 	locator(selector: string): StepLocator;
 	waitForTimeout(ms: number): Promise<void>;
+	waitForURL(url: string | RegExp, opts?: unknown): Promise<void>;
+	waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;
 	screenshot(opts?: unknown): Promise<Buffer>;
 	url(): string;
 	keyboard: { press(key: string): Promise<void> };

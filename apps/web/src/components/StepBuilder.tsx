@@ -5,17 +5,34 @@ import { trpc } from '../lib/trpc';
 
 type SavedAction = { id: string; name: string; dsl: string };
 
-/** The friendly "kinds" of element a non-technical person can point at. '' = match by text. */
+/** Roles a non-technical person recognizes, used when finding an element "by role". */
 const KINDS: { value: string; label: string }[] = [
 	{ value: 'button', label: 'Button' },
 	{ value: 'link', label: 'Link' },
 	{ value: 'textbox', label: 'Text box' },
 	{ value: 'checkbox', label: 'Checkbox' },
+	{ value: 'radio', label: 'Radio button' },
 	{ value: 'combobox', label: 'Dropdown' },
 	{ value: 'heading', label: 'Heading' },
 	{ value: 'img', label: 'Image' },
-	{ value: '', label: 'Anything (by its text)' },
+	{ value: 'tab', label: 'Tab' },
+	{ value: 'menuitem', label: 'Menu item' },
+	{ value: 'listitem', label: 'List item' },
 ];
+
+/** How to find an element — simple options first, power options after. */
+const STRATEGIES: { value: string; label: string; hint: string }[] = [
+	{ value: 'role', label: 'By kind + label', hint: 'e.g. the “Sign in” button' },
+	{ value: 'text', label: 'By visible text', hint: 'e.g. Add to cart' },
+	{ value: 'label', label: 'By field label', hint: 'a form field’s label' },
+	{ value: 'placeholder', label: 'By placeholder', hint: 'greyed-out hint text in a field' },
+	{ value: 'testId', label: 'By test ID (advanced)', hint: 'data-testid attribute' },
+	{ value: 'altText', label: 'By image alt text (advanced)', hint: '' },
+	{ value: 'title', label: 'By title (advanced)', hint: '' },
+	{ value: 'css', label: 'By CSS selector (advanced)', hint: 'e.g. #login .submit' },
+	{ value: 'xpath', label: 'By XPath (advanced)', hint: 'e.g. //button[@id="go"]' },
+];
+const STRAT_KEYS = ['role', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath', 'ref'] as const;
 
 /** Palette of actions, in the order most people reach for them. `make` returns a fresh default step. */
 const ACTIONS: { type: Step['type']; icon: string; label: string; make: () => Step }[] = [
@@ -35,7 +52,9 @@ const ACTIONS: { type: Step['type']; icon: string; label: string; make: () => St
 	{ type: 'visualCheck', icon: '🎨', label: 'Compare against a saved look', make: () => ({ type: 'visualCheck', name: '', fullPage: false }) },
 	{ type: 'select', icon: '▼', label: 'Choose from a dropdown', make: () => ({ type: 'select', locator: { role: 'combobox' }, values: [''] }) },
 	{ type: 'hover', icon: '🖱️', label: 'Hover over something', make: () => ({ type: 'hover', locator: { role: 'button' } }) },
-	{ type: 'wait', icon: '⏱️', label: 'Wait a moment', make: () => ({ type: 'wait', timeoutMs: 1000 }) },
+	{ type: 'wait', icon: '⏱️', label: 'Wait (time or for an element)', make: () => ({ type: 'wait', timeoutMs: 1000 }) },
+	{ type: 'waitForUrl', icon: '⏳', label: 'Wait for the web address', make: () => ({ type: 'waitForUrl', url: '' }) },
+	{ type: 'waitForLoadState', icon: '🌐', label: 'Wait for the page to settle', make: () => ({ type: 'waitForLoadState', state: 'networkidle' }) },
 	{ type: 'press', icon: '↵', label: 'Press a key', make: () => ({ type: 'press', key: 'Enter' }) },
 	{ type: 'totp', icon: '🔐', label: 'Enter a 2-factor code', make: () => ({ type: 'totp', locator: { role: 'textbox' }, secret: '' }) },
 	{ type: 'assertNotVisible', icon: '🙈', label: 'Check something is hidden', make: () => ({ type: 'assertNotVisible', locator: { role: 'heading' } }) },
@@ -64,45 +83,135 @@ const EXAMPLE: Step[] = [
 const field = 'w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none transition focus:border-white/30';
 const label = 'mb-1 block text-xs font-medium text-white/45';
 
-/** Which "kind" the locator currently represents (a role, or '' for match-by-text). */
-function kindOf(loc: Locator): string {
-	if (loc.css?.startsWith('text=')) return '';
-	if (loc.role !== undefined) return loc.role;
-	return '';
+type L = Record<string, unknown>;
+
+/** Which strategy the locator currently uses (first strategy field that's set). */
+function strategyOf(loc: L): string {
+	return STRAT_KEYS.find((k) => loc[k] !== undefined) ?? 'role';
 }
-/** The editable text of a locator: its accessible name, or the text it matches. */
-function textOf(loc: Locator): string {
-	if (loc.css?.startsWith('text=')) return loc.css.slice(5);
-	return loc.name ?? '';
+/** The primary text value of a locator (its name for role, else the strategy field). */
+function primaryValue(loc: L): string {
+	const s = strategyOf(loc);
+	return String((s === 'role' ? loc.name : loc[s]) ?? '');
 }
-/** Build a locator from a friendly (kind, text) pair. */
-function toLocator(kind: string, text: string): Locator {
-	if (kind === '') return { css: `text=${text}` };
-	return text ? { role: kind, name: text } : { role: kind };
+/** Rebuild a locator using a new strategy, carrying over the text value + modifiers. */
+function withStrategy(loc: L, strat: string, val: string): L {
+	const keep: L = {};
+	for (const k of ['exact', 'nth', 'fallbacks'] as const) if (loc[k] !== undefined) keep[k] = loc[k];
+	if (strat === 'role') return { role: loc.role ?? 'button', ...(val ? { name: val } : {}), ...keep };
+	if (strat === 'ref') return { ref: val, ...keep };
+	return { [strat]: val, ...keep };
+}
+
+/** The strategy dropdown + value input(s) for one selector (used for primary and fallbacks). */
+function StrategyPicker(props: { locator: L; onChange: (l: L) => void }) {
+	const strat = () => strategyOf(props.locator);
+	const st = () => STRATEGIES.find((s) => s.value === strat());
+	return (
+		<div class="grid grid-cols-[10rem_1fr] gap-2">
+			<div>
+				<label class={label}>How to find it</label>
+				<select class={field} value={strat()} onChange={(e) => props.onChange(withStrategy(props.locator, e.currentTarget.value, primaryValue(props.locator)))}>
+					<For each={STRATEGIES}>{(s) => <option value={s.value}>{s.label}</option>}</For>
+				</select>
+			</div>
+			<Show
+				when={strat() === 'role'}
+				fallback={
+					<div>
+						<label class={label}>{st()?.label.replace(/^By /, '').replace(/ \(advanced\)$/, '')}</label>
+						<input
+							class={field}
+							value={primaryValue(props.locator)}
+							placeholder={st()?.hint}
+							onInput={(e) => props.onChange(withStrategy(props.locator, strat(), e.currentTarget.value))}
+						/>
+					</div>
+				}
+			>
+				<div class="grid grid-cols-[7rem_1fr] gap-2">
+					<div>
+						<label class={label}>Kind</label>
+						<select
+							class={field}
+							value={String(props.locator.role ?? 'button')}
+							onChange={(e) => props.onChange({ ...props.locator, role: e.currentTarget.value })}
+						>
+							<For each={KINDS}>{(k) => <option value={k.value}>{k.label}</option>}</For>
+						</select>
+					</div>
+					<div>
+						<label class={label}>Labeled / says</label>
+						<input
+							class={field}
+							value={primaryValue(props.locator)}
+							placeholder="e.g. Sign in (optional)"
+							onInput={(e) => props.onChange(withStrategy(props.locator, 'role', e.currentTarget.value))}
+						/>
+					</div>
+				</div>
+			</Show>
+		</div>
+	);
 }
 
 /**
- * A plain-language element picker: a "kind" dropdown + a "labeled / text" box.
- * Hides the role/name/css machinery behind words a non-technical person understands.
+ * Full element picker: a strategy picker plus an "advanced" drawer for exact-match,
+ * disambiguation (nth), and backup selectors — so it stays simple by default but lets
+ * an experienced user build a precise, resilient target.
  */
 function ElementField(props: { locator: Locator; onChange: (l: Locator) => void }) {
+	const [adv, setAdv] = createSignal(false);
+	const loc = () => props.locator as L;
+	const fallbacks = () => (loc().fallbacks as L[] | undefined) ?? [];
+	const patch = (p: L) => props.onChange({ ...loc(), ...p } as Locator);
+	const setFallbacks = (fs: L[]) => props.onChange({ ...loc(), fallbacks: fs.length ? fs : undefined } as Locator);
+
 	return (
-		<div class="grid grid-cols-[8rem_1fr] gap-2">
-			<div>
-				<label class={label}>What kind?</label>
-				<select class={field} value={kindOf(props.locator)} onChange={(e) => props.onChange(toLocator(e.currentTarget.value, textOf(props.locator)))}>
-					<For each={KINDS}>{(k) => <option value={k.value}>{k.label}</option>}</For>
-				</select>
-			</div>
-			<div>
-				<label class={label}>{kindOf(props.locator) === '' ? 'Containing the text' : 'Labeled / says'}</label>
-				<input
-					class={field}
-					value={textOf(props.locator)}
-					placeholder={kindOf(props.locator) === '' ? 'e.g. Add to cart' : 'e.g. Sign in'}
-					onInput={(e) => props.onChange(toLocator(kindOf(props.locator), e.currentTarget.value))}
-				/>
-			</div>
+		<div class="space-y-2">
+			<StrategyPicker locator={loc()} onChange={(l) => props.onChange(l as Locator)} />
+			<button class="text-xs text-white/35 hover:text-white/60" onClick={() => setAdv((v) => !v)}>
+				{adv() ? '− fewer options' : '+ exact match, backup selectors, which-one'}
+			</button>
+			<Show when={adv()}>
+				<div class="space-y-2 rounded-lg border border-white/5 bg-black/20 p-3">
+					<div class="flex flex-wrap items-center gap-4">
+						<label class="flex items-center gap-2 text-xs text-white/70">
+							<input type="checkbox" checked={Boolean(loc().exact)} onChange={(e) => patch({ exact: e.currentTarget.checked || undefined })} />
+							Exact match (not just contains)
+						</label>
+						<label class="flex items-center gap-2 text-xs text-white/70">
+							If several match, use #
+							<input
+								type="number"
+								min="1"
+								class="w-16 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs"
+								value={loc().nth !== undefined ? Number(loc().nth) + 1 : ''}
+								placeholder="1"
+								onInput={(e) => patch({ nth: e.currentTarget.value ? Number(e.currentTarget.value) - 1 : undefined })}
+							/>
+						</label>
+					</div>
+					<div>
+						<span class={label}>Backup selectors (tried if the main one isn’t found)</span>
+						<For each={fallbacks()}>
+							{(f, i) => (
+								<div class="mb-2 flex items-start gap-2">
+									<div class="flex-1">
+										<StrategyPicker locator={f} onChange={(nf) => setFallbacks(fallbacks().map((x, j) => (j === i() ? nf : x)))} />
+									</div>
+									<button class="mt-6 rounded p-1 text-white/40 hover:text-red-300" onClick={() => setFallbacks(fallbacks().filter((_, j) => j !== i()))}>
+										✕
+									</button>
+								</div>
+							)}
+						</For>
+						<button class="text-xs text-violet-300/80 hover:text-violet-200" onClick={() => setFallbacks([...fallbacks(), { css: '' }])}>
+							+ add a backup selector
+						</button>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 }
@@ -633,18 +742,72 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 					</div>
 				</div>
 			);
-		case 'wait':
+		case 'wait': {
+			const mode = () => (step.locator ? 'element' : 'time');
+			return (
+				<div class="space-y-2">
+					<div>
+						<label class={label}>Wait for…</label>
+						<select
+							class={field}
+							value={mode()}
+							onChange={(e) =>
+								e.currentTarget.value === 'element'
+									? patch({ locator: { role: 'heading' }, state: 'visible', timeoutMs: undefined } as Partial<Step>)
+									: patch({ locator: undefined, state: undefined, timeoutMs: 1000 } as Partial<Step>)
+							}
+						>
+							<option value="time">a fixed amount of time</option>
+							<option value="element">an element to appear / disappear</option>
+						</select>
+					</div>
+					<Show
+						when={mode() === 'element'}
+						fallback={
+							<div>
+								<label class={label}>Seconds to wait</label>
+								<input
+									type="number"
+									min="0"
+									step="0.5"
+									class={field}
+									value={(step.timeoutMs ?? 1000) / 1000}
+									onInput={(e) => patch({ timeoutMs: Math.max(0, Number(e.currentTarget.value) * 1000) })}
+								/>
+							</div>
+						}
+					>
+						<ElementField locator={step.locator!} onChange={(locator) => patch({ locator } as Partial<Step>)} />
+						<div>
+							<label class={label}>Until it is</label>
+							<select class={field} value={step.state ?? 'visible'} onChange={(e) => patch({ state: e.currentTarget.value } as Partial<Step>)}>
+								<option value="visible">visible</option>
+								<option value="hidden">hidden</option>
+								<option value="attached">on the page</option>
+								<option value="detached">gone from the page</option>
+							</select>
+						</div>
+					</Show>
+				</div>
+			);
+		}
+		case 'waitForUrl':
 			return (
 				<div>
-					<label class={label}>Seconds to wait</label>
-					<input
-						type="number"
-						min="0"
-						step="0.5"
-						class={field}
-						value={(step.timeoutMs ?? 1000) / 1000}
-						onInput={(e) => patch({ timeoutMs: Math.max(0, Number(e.currentTarget.value) * 1000) })}
-					/>
+					<label class={label}>Wait until the web address matches</label>
+					<input class={field} value={step.url} placeholder="**/dashboard" onInput={(e) => patch({ url: e.currentTarget.value })} />
+					<p class="mt-1 text-xs text-white/30">Use * / ** as wildcards, e.g. <code class="text-white/50">**/orders/*</code>.</p>
+				</div>
+			);
+		case 'waitForLoadState':
+			return (
+				<div>
+					<label class={label}>Wait for</label>
+					<select class={field} value={step.state} onChange={(e) => patch({ state: e.currentTarget.value } as Partial<Step>)}>
+						<option value="networkidle">the page to settle (no network activity)</option>
+						<option value="load">the load event</option>
+						<option value="domcontentloaded">the DOM to be ready</option>
+					</select>
 				</div>
 			);
 		case 'press':

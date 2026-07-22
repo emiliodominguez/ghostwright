@@ -18,6 +18,8 @@ const BUILDER_KEYS = [
 	'totp',
 	'setVar',
 	'only',
+	'waitForUrl',
+	'waitForLoadState',
 	'execJs',
 	'assertJs',
 	'assertNotVisible',
@@ -35,12 +37,15 @@ const BUILDER_KEYS = [
 	'actionRef',
 ] as const;
 
+const LOC_KEYS = ['role', 'name', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath', 'ref', 'exact', 'nth'] as const;
+
 function loc(l: Locator): string {
 	const parts: string[] = [];
-	if (l.role !== undefined) parts.push(`role: ${JSON.stringify(l.role)}`);
-	if (l.name !== undefined) parts.push(`name: ${JSON.stringify(l.name)}`);
-	if (l.css !== undefined) parts.push(`css: ${JSON.stringify(l.css)}`);
-	if (l.ref !== undefined) parts.push(`ref: ${JSON.stringify(l.ref)}`);
+	for (const k of LOC_KEYS) {
+		const v = (l as Record<string, unknown>)[k];
+		if (v !== undefined) parts.push(`${k}: ${JSON.stringify(v)}`);
+	}
+	if (l.fallbacks?.length) parts.push(`fallbacks: ${JSON.stringify(l.fallbacks)}`);
 	return `{ ${parts.join(', ')} }`;
 }
 
@@ -85,6 +90,10 @@ function stepToLine(s: Step): string {
 			if (s.timeoutMs) o.timeoutMs = s.timeoutMs;
 			return `wait(${JSON.stringify(o)})`;
 		}
+		case 'waitForUrl':
+			return s.timeoutMs !== undefined ? `waitForUrl(${JSON.stringify(s.url)}, ${s.timeoutMs})` : `waitForUrl(${JSON.stringify(s.url)})`;
+		case 'waitForLoadState':
+			return `waitForLoadState(${JSON.stringify(s.state)})`;
 		case 'assertText':
 			return s.mode === 'exact'
 				? `assertText(${loc(s.locator)}, ${JSON.stringify(s.text)}, "exact")`
@@ -168,6 +177,8 @@ export function fromCode(code: string): Test {
 		hover: (locator) => steps.push({ type: 'hover', locator }),
 		select: (locator, values) => steps.push({ type: 'select', locator, values }),
 		wait: (opts) => steps.push({ type: 'wait', ...(opts as object) }),
+		waitForUrl: (url, timeoutMs) => steps.push({ type: 'waitForUrl', url, ...(timeoutMs !== undefined ? { timeoutMs } : {}) }),
+		waitForLoadState: (state) => steps.push({ type: 'waitForLoadState', state }),
 		assertText: (locator, text, mode) => steps.push({ type: 'assertText', locator, text, ...(mode ? { mode } : {}) }),
 		assertVisible: (locator) => steps.push({ type: 'assertVisible', locator }),
 		assertNotVisible: (locator) => steps.push({ type: 'assertNotVisible', locator }),

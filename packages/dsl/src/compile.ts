@@ -25,41 +25,55 @@ function lookup(ctx: RunContext): VarLookup {
 function iv(str: string, ctx: RunContext): string {
 	return interpolate(str, lookup(ctx));
 }
-/** Interpolate a locator's name/css so elements can be targeted with variables. */
+const TEXT_FIELDS = ['name', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath'] as const;
+
+/** Interpolate every string field of a single locator so elements can be targeted with variables. */
+function interpOne<T extends Record<string, unknown>>(loc: T, ctx: RunContext): T {
+	const out = { ...loc } as Record<string, unknown>;
+	for (const k of TEXT_FIELDS) if (typeof out[k] === 'string') out[k] = iv(out[k] as string, ctx);
+	return out as T;
+}
+/** Interpolate a locator and each of its fallbacks. */
 function interpLoc(loc: Locator, ctx: RunContext): Locator {
-	return {
-		...loc,
-		...(loc.name !== undefined ? { name: iv(loc.name, ctx) } : {}),
-		...(loc.css !== undefined ? { css: iv(loc.css, ctx) } : {}),
-	};
+	const base = interpOne(loc, ctx);
+	if (loc.fallbacks) base.fallbacks = loc.fallbacks.map((f) => interpOne(f, ctx));
+	return base;
+}
+
+/** The single strategy field a locator uses, resolved to a Playwright locator (before `nth`). */
+function byStrategy(page: StepPage, loc: Locator): StepLocator {
+	const opts = loc.exact !== undefined ? { exact: loc.exact } : undefined;
+	if (loc.role !== undefined) {
+		const roleOpts = { ...(loc.name !== undefined ? { name: loc.name } : {}), ...(loc.exact !== undefined ? { exact: loc.exact } : {}) };
+		return page.getByRole(loc.role, Object.keys(roleOpts).length ? roleOpts : undefined);
+	}
+	if (loc.text !== undefined) return page.getByText(loc.text, opts);
+	if (loc.placeholder !== undefined) return page.getByPlaceholder(loc.placeholder, opts);
+	if (loc.label !== undefined) return page.getByLabel(loc.label, opts);
+	if (loc.testId !== undefined) return page.getByTestId(loc.testId);
+	if (loc.altText !== undefined) return page.getByAltText(loc.altText, opts);
+	if (loc.title !== undefined) return page.getByTitle(loc.title, opts);
+	if (loc.css !== undefined) return page.locator(loc.css);
+	if (loc.xpath !== undefined) return page.locator(`xpath=${loc.xpath}`);
+	// `ref` fallback — Playwright's aria-ref engine (as used by _snapshotForAI).
+	return page.locator(`aria-ref=${loc.ref}`);
 }
 
 /**
- * Resolve a DSL locator to a Playwright locator. Priority: durable `role`(+`name`)
- * first, then `css`, then `ref` (the `aria-ref` engine used by AI snapshots).
+ * Resolve a DSL locator to a Playwright locator (its strategy, narrowed by `nth`).
  *
  * @param page - the page to resolve against.
  * @param loc - the DSL locator.
  * @returns a Playwright-compatible locator.
  */
 export function resolveLocator(page: StepPage, loc: Locator): StepLocator {
-	if (loc.role) {
-		return page.getByRole(loc.role, loc.name !== undefined ? { name: loc.name } : undefined);
-	}
-	if (loc.css) {
-		return page.locator(loc.css);
-	}
-	// `ref` fallback — Playwright's aria-ref engine (as used by _snapshotForAI).
-	return page.locator(`aria-ref=${loc.ref}`);
+	const l = byStrategy(page, loc);
+	return loc.nth !== undefined ? l.nth(loc.nth) : l;
 }
 
-/** Every locator strategy present, in durability order (role+name → css → ref). */
+/** The primary locator plus every backup selector, for self-healing. */
 function candidates(page: StepPage, loc: Locator): StepLocator[] {
-	const out: StepLocator[] = [];
-	if (loc.role) out.push(page.getByRole(loc.role, loc.name !== undefined ? { name: loc.name } : undefined));
-	if (loc.css) out.push(page.locator(loc.css));
-	if (loc.ref) out.push(page.locator(`aria-ref=${loc.ref}`));
-	return out;
+	return [resolveLocator(page, loc), ...(loc.fallbacks ?? []).map((f) => resolveLocator(page, f as Locator))];
 }
 
 /**
@@ -145,6 +159,13 @@ function buildRunner(step: Step): CompiledStep {
 					}
 				},
 			};
+		case 'waitForUrl':
+			return {
+				type: step.type,
+				run: async (page, ctx) => page.waitForURL(iv(step.url, ctx), step.timeoutMs !== undefined ? { timeout: step.timeoutMs } : undefined),
+			};
+		case 'waitForLoadState':
+			return { type: step.type, run: async (page) => page.waitForLoadState(step.state) };
 		case 'assertText':
 			return {
 				type: step.type,

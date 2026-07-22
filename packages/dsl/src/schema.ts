@@ -1,19 +1,40 @@
 import { z } from 'zod';
 
 /**
- * A durable element locator. `role` + `name` is the primary, self-healing anchor
- * (survives DOM churn); `css` and `ref` are fallbacks. At least one must be present.
+ * An element locator. Any one of the strategy fields targets an element the way
+ * Playwright does — by accessible role+name, visible text, placeholder, label,
+ * test id, alt/title, CSS, XPath, or an AI `ref`. `exact` tightens text matching,
+ * `nth` disambiguates when several match, and `fallbacks` are backup selectors the
+ * self-healing resolver tries in order when the primary finds nothing.
  */
+const locatorFields = {
+	role: z.string().optional(),
+	name: z.string().optional(),
+	text: z.string().optional(),
+	placeholder: z.string().optional(),
+	label: z.string().optional(),
+	testId: z.string().optional(),
+	altText: z.string().optional(),
+	title: z.string().optional(),
+	css: z.string().optional(),
+	xpath: z.string().optional(),
+	ref: z.string().optional(),
+	/** Exact (vs. substring/normalized) matching for text-based strategies. */
+	exact: z.boolean().optional(),
+	/** Pick the Nth match (0-based) when the strategy matches several elements. */
+	nth: z.number().int().optional(),
+};
+
+const STRATEGY_KEYS = ['role', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath', 'ref'] as const;
+function hasStrategy(l: Record<string, unknown>): boolean {
+	return STRATEGY_KEYS.some((k) => l[k] !== undefined && l[k] !== '');
+}
+
+const baseLocatorSchema = z.object(locatorFields);
+
 export const locatorSchema = z
-	.object({
-		role: z.string().optional(),
-		name: z.string().optional(),
-		css: z.string().optional(),
-		ref: z.string().optional(),
-	})
-	.refine((l) => Boolean(l.role || l.css || l.ref), {
-		message: 'locator requires at least one of: role, css, ref',
-	});
+	.object({ ...locatorFields, fallbacks: z.array(baseLocatorSchema).optional() })
+	.refine(hasStrategy, { message: 'locator needs a way to find the element (role, text, css, …)' });
 
 export type Locator = z.infer<typeof locatorSchema>;
 
@@ -40,6 +61,11 @@ const waitStep = z.object({
 	locator: locatorSchema.optional(),
 	state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
 	timeoutMs: z.number().int().positive().optional(),
+});
+const waitForUrlStep = z.object({ type: z.literal('waitForUrl'), url: z.string(), timeoutMs: z.number().int().positive().optional() });
+const waitForLoadStateStep = z.object({
+	type: z.literal('waitForLoadState'),
+	state: z.enum(['load', 'domcontentloaded', 'networkidle']).default('networkidle'),
 });
 const assertTextStep = z.object({
 	type: z.literal('assertText'),
@@ -98,6 +124,8 @@ const stepVariants = z.discriminatedUnion('type', [
 	hoverStep,
 	selectStep,
 	waitStep,
+	waitForUrlStep,
+	waitForLoadStateStep,
 	assertTextStep,
 	assertVisibleStep,
 	assertNotVisibleStep,

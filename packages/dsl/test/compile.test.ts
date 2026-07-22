@@ -18,6 +18,10 @@ function fakeLocator(tag: string, calls: string[]): StepLocator {
 		scrollIntoViewIfNeeded: vi.fn(async () => void calls.push(`${tag}.scrollIntoView`)),
 		setInputFiles: vi.fn(async (f) => void calls.push(`${tag}.setInputFiles(${String(f)})`)),
 		count: vi.fn(async () => 1),
+		nth: vi.fn((n: number) => {
+			calls.push(`${tag}.nth(${n})`);
+			return fakeLocator(tag, calls);
+		}),
 	};
 }
 
@@ -33,7 +37,33 @@ function fakePage(calls: string[]) {
 			calls.push(`locator(${sel})`);
 			return fakeLocator('css', calls);
 		}),
+		getByText: vi.fn((t: string, o?: { exact?: boolean }) => {
+			calls.push(`getByText(${t}${o?.exact ? ',exact' : ''})`);
+			return fakeLocator('text', calls);
+		}),
+		getByPlaceholder: vi.fn((t: string) => {
+			calls.push(`getByPlaceholder(${t})`);
+			return fakeLocator('placeholder', calls);
+		}),
+		getByLabel: vi.fn((t: string) => {
+			calls.push(`getByLabel(${t})`);
+			return fakeLocator('label', calls);
+		}),
+		getByTestId: vi.fn((t: string) => {
+			calls.push(`getByTestId(${t})`);
+			return fakeLocator('testId', calls);
+		}),
+		getByAltText: vi.fn((t: string) => {
+			calls.push(`getByAltText(${t})`);
+			return fakeLocator('altText', calls);
+		}),
+		getByTitle: vi.fn((t: string) => {
+			calls.push(`getByTitle(${t})`);
+			return fakeLocator('title', calls);
+		}),
 		waitForTimeout: vi.fn(async (ms: number) => void calls.push(`waitForTimeout(${ms})`)),
+		waitForURL: vi.fn(async (u: unknown) => void calls.push(`waitForURL(${String(u)})`)),
+		waitForLoadState: vi.fn(async (s?: string) => void calls.push(`waitForLoadState(${s ?? ''})`)),
 		screenshot: vi.fn(async () => Buffer.from('img')),
 		url: vi.fn(() => 'https://example.com/dashboard'),
 		keyboard: { press: vi.fn(async (k: string) => void calls.push(`keyboard.press(${k})`)) },
@@ -266,26 +296,53 @@ describe('compile — extract, assertions, interactions (T3/T4)', () => {
 	});
 });
 
-describe('healLocator — self-healing selectors', () => {
-	it('falls back to css when the role+name strategy has no match', async () => {
+describe('locator strategies', () => {
+	const strategies: [Record<string, unknown>, string][] = [
+		[{ text: 'Buy now' }, 'getByText(Buy now)'],
+		[{ placeholder: 'Email' }, 'getByPlaceholder(Email)'],
+		[{ label: 'Password' }, 'getByLabel(Password)'],
+		[{ testId: 'submit' }, 'getByTestId(submit)'],
+		[{ altText: 'Logo' }, 'getByAltText(Logo)'],
+		[{ title: 'Close' }, 'getByTitle(Close)'],
+		[{ xpath: '//button' }, 'locator(xpath=//button)'],
+	];
+	for (const [loc, expected] of strategies) {
+		it(`resolves ${Object.keys(loc)[0]}`, () => {
+			const calls: string[] = [];
+			resolveLocator(fakePage(calls), loc as never);
+			expect(calls).toContain(expected);
+		});
+	}
+
+	it('applies nth', () => {
 		const calls: string[] = [];
-		// role locator matches 0 elements; css locator matches 1 → healing picks css.
+		resolveLocator(fakePage(calls), { css: '.item', nth: 2 } as never);
+		expect(calls).toContain('css.nth(2)');
+	});
+
+	it('passes exact for text strategies', () => {
+		const calls: string[] = [];
+		resolveLocator(fakePage(calls), { text: 'OK', exact: true } as never);
+		expect(calls).toContain('getByText(OK,exact)');
+	});
+});
+
+describe('healLocator — self-healing selectors', () => {
+	it('falls back to a backup selector when the primary has no match', async () => {
+		const calls: string[] = [];
 		const roleLoc = { ...fakeLocator('role', calls), count: async () => 0 };
 		const cssLoc = { ...fakeLocator('css', calls), count: async () => 1 };
-		const page = {
-			...fakePage(calls),
-			getByRole: () => roleLoc as never,
-			locator: () => cssLoc as never,
-		};
-		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', css: '#save' } }, page, fakeCtx(calls));
+		const page = { ...fakePage(calls), getByRole: () => roleLoc as never, locator: () => cssLoc as never };
+		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', fallbacks: [{ css: '#save' }] } }, page, fakeCtx(calls));
 		expect(calls).toContain('css.click');
 		expect(calls).not.toContain('role.click');
 	});
 
-	it('uses the primary when it matches', async () => {
+	it('uses the primary when it matches (no fallbacks probed)', async () => {
 		const calls: string[] = [];
-		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', css: '#save' } }, fakePage(calls), fakeCtx(calls));
+		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', fallbacks: [{ css: '#save' }] } }, fakePage(calls), fakeCtx(calls));
 		expect(calls).toContain('role.click');
+		expect(calls).not.toContain('css.click');
 	});
 });
 

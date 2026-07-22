@@ -42,6 +42,17 @@ describe('codegen round-trip', () => {
 		expect(toCode(t)).toContain('assertJs("return document.title.length > 0")');
 	});
 
+	it('round-trips rich locators (strategies, exact, nth, fallbacks)', () => {
+		const t = parseTest({
+			steps: [
+				{ type: 'click', locator: { text: 'Buy now', exact: true, nth: 1, fallbacks: [{ testId: 'buy' }, { css: '.buy-btn' }] } },
+				{ type: 'fill', locator: { placeholder: 'Search' }, value: 'shoes' },
+				{ type: 'assertVisible', locator: { xpath: '//h1' } },
+			],
+		});
+		expect(fromCode(toCode(t))).toEqual(t);
+	});
+
 	it('round-trips per-step conditions (via only(...))', () => {
 		const t = parseTest({
 			steps: [

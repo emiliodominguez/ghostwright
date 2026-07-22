@@ -23,15 +23,27 @@ const ROLE_NOUN: Record<string, string> = {
  * @returns a human-readable noun phrase for the element.
  */
 export function describeLocator(l: Locator): string {
-	if (l.role) {
+	const nth = l.nth !== undefined ? ` (#${l.nth + 1})` : '';
+	return describeStrategy(l) + nth;
+}
+
+/** The core noun phrase for a locator's strategy, without the nth suffix. */
+function describeStrategy(l: Locator): string {
+	if (l.role !== undefined) {
 		const noun = ROLE_NOUN[l.role] ?? l.role;
 		return l.name ? `the "${l.name}" ${noun}` : `the ${noun}`;
 	}
-	if (l.css) {
+	if (l.text !== undefined) return `the element that says "${l.text}"`;
+	if (l.placeholder !== undefined) return `the field with placeholder "${l.placeholder}"`;
+	if (l.label !== undefined) return `the field labeled "${l.label}"`;
+	if (l.testId !== undefined) return `the element with test id "${l.testId}"`;
+	if (l.altText !== undefined) return `the image "${l.altText}"`;
+	if (l.title !== undefined) return `the element titled "${l.title}"`;
+	if (l.css !== undefined) {
 		const text = l.css.match(/^text=(.+)$/);
-		if (text) return `the element that says "${text[1]}"`;
-		return `the element "${l.css}"`;
+		return text ? `the element that says "${text[1]}"` : `the element \`${l.css}\``;
 	}
+	if (l.xpath !== undefined) return `the element at \`${l.xpath}\``;
 	return 'the element';
 }
 
@@ -60,6 +72,10 @@ export function describeStep(s: Step): string {
 		case 'wait':
 			if (s.locator) return `Wait for ${describeLocator(s.locator)} to be ${s.state ?? 'visible'}`;
 			return `Wait ${((s.timeoutMs ?? 1000) / 1000).toString()} seconds`;
+		case 'waitForUrl':
+			return `Wait until the web address matches "${s.url}"`;
+		case 'waitForLoadState':
+			return s.state === 'networkidle' ? 'Wait for the page to settle (no network activity)' : `Wait for the page "${s.state}" event`;
 		case 'assertText':
 			return `Check that ${describeLocator(s.locator)} ${s.mode === 'exact' ? 'says exactly' : 'contains'} "${s.text}"`;
 		case 'assertVisible':
