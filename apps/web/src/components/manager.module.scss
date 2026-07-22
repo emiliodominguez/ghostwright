@@ -1,0 +1,165 @@
+@use '../styles/abstracts' as *;
+
+// Shared styling for the list + add-form managers (Secrets, Login flows).
+
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: space(4);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: space(3);
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.empty {
+	font-size: font-size('base');
+	color: var(--text-subtle);
+}
+
+.item {
+	@include card;
+	padding: space(4);
+}
+
+.item-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(3);
+	font-size: font-size('base');
+}
+
+.item-head {
+	margin-bottom: space(2);
+}
+
+.item-name {
+	display: inline-flex;
+	align-items: center;
+	gap: space(2);
+	font-weight: $weight-medium;
+
+	svg {
+		color: var(--text-subtle);
+	}
+}
+
+.item-note {
+	color: var(--text-faint);
+
+	code {
+		padding: 1px space(1);
+		border-radius: radius('sm');
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+		font-size: 0.92em;
+	}
+}
+
+.item-meta {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	flex-shrink: 0;
+}
+
+.delete-link {
+	@include button-reset;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--danger-text);
+	}
+}
+
+.preview {
+	display: flex;
+	flex-direction: column;
+	gap: space(1);
+	padding-left: space(1);
+	list-style: none;
+	margin: 0;
+	font-size: font-size('xs');
+	color: var(--text-muted);
+
+	.idx {
+		color: var(--text-faint);
+	}
+}
+
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: space(1.5);
+	margin-bottom: space(2);
+	font-size: font-size('xs');
+
+	&.ok {
+		color: var(--success-text);
+	}
+	&.warn {
+		color: var(--warning-text);
+	}
+}
+
+// ── Add form ────────────────────────────────────────────────────────────────
+.form {
+	@include card;
+	padding: space(4);
+}
+
+.form-grid {
+	display: grid;
+	gap: space(2);
+
+	@include at('sm') {
+		grid-template-columns: 1fr auto;
+	}
+}
+
+.col-span-2 {
+	@include at('sm') {
+		grid-column: span 2;
+	}
+}
+
+.input {
+	@include field;
+}
+
+.select {
+	@include select-field;
+}
+
+.add-btn {
+	@include button-primary;
+	margin-top: space(3);
+}
+
+.capture-btn {
+	@include button-base;
+	padding: space(1) space(3);
+	border: 1px solid transparent;
+	background-color: var(--success);
+	color: #052e1a;
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--success) 85%, white);
+	}
+}
+
+.hint {
+	margin-top: space(2);
+	font-size: font-size('xs');
+	color: var(--text-faint);
+}

@@ -1,0 +1,68 @@
+---
+interface Props {
+	title: string;
+	back?: { href: string; label: string };
+}
+const { title, back = { href: '/', label: 'home' } } = Astro.props;
+const hasLead = Astro.slots.has('default');
+---
+
+<header class="page-header">
+	<a href={back.href} class="back">
+		<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+		</svg>
+		{back.label}
+	</a>
+	<h1>{title}</h1>
+	{hasLead && <p class="lead"><slot /></p>}
+</header>
+
+<style lang="scss">
+	@use '../styles/abstracts' as *;
+
+	.page-header {
+		margin-bottom: space(8);
+	}
+
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: space(1);
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+		transition: color $transition-base $ease;
+
+		&:hover {
+			color: var(--text-muted);
+		}
+	}
+
+	h1 {
+		margin-top: space(1.5);
+		font-size: font-size('3xl');
+		font-weight: $weight-semibold;
+		letter-spacing: -0.02em;
+	}
+
+	.lead {
+		max-width: 44rem;
+		margin-top: space(2);
+		font-size: font-size('base');
+		line-height: $leading-normal;
+		color: var(--text-subtle);
+
+		:global(code) {
+			padding: 1px space(1);
+			border-radius: radius('sm');
+			background-color: var(--surface-3);
+			color: var(--text-muted);
+			font-size: 0.92em;
+		}
+
+		:global(strong) {
+			font-weight: $weight-medium;
+			color: var(--text-muted);
+		}
+	}
+</style>

@@ -1,6 +1,8 @@
 import { describeStep, parseTest } from '@ghostwright/dsl';
 import { createSignal, For, onMount, Show } from 'solid-js';
 import { trpc } from '../lib/trpc';
+import { IconCheck, IconLock } from './icons';
+import styles from './manager.module.scss';
 
 type Flow = {
 	id: string;
@@ -44,40 +46,45 @@ export default function LoginFlows() {
 	}
 
 	return (
-		<Show when={flows().length > 0} fallback={<p class="text-sm text-white/40">No login flows yet. Build one on the right.</p>}>
-			<ul class="space-y-3">
+		<Show when={flows().length > 0} fallback={<p class={styles['empty']}>No login flows yet. Build one on the right.</p>}>
+			<ul class={styles['list']}>
 				<For each={flows()}>
 					{(f) => (
-						<li class="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-							<div class="mb-2 flex items-center justify-between gap-3">
-								<span class="font-medium">🔓 {f.name}</span>
-								<div class="flex items-center gap-2">
-									<button
-										class="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-medium text-black transition hover:bg-emerald-400 disabled:opacity-50"
-										disabled={capturing() === f.id}
-										onClick={() => capture(f.id)}
-									>
+						<li class={styles['item']}>
+							<div class={`${styles['item-row']} ${styles['item-head']}`}>
+								<span class={styles['item-name']}>
+									<IconLock size={15} />
+									{f.name}
+								</span>
+								<div class={styles['item-meta']}>
+									<button type="button" class={styles['capture-btn']} disabled={capturing() === f.id} onClick={() => capture(f.id)}>
 										{capturing() === f.id ? 'Capturing…' : 'Capture session'}
 									</button>
-									<button class="text-xs text-white/40 hover:text-red-300" onClick={() => remove(f.id)}>
+									<button type="button" class={styles['delete-link']} onClick={() => remove(f.id)}>
 										delete
 									</button>
 								</div>
 							</div>
-							<div class="mb-2 text-xs">
-								<Show
-									when={f.captured && !f.lastCaptureError}
-									fallback={
-										<span class="text-amber-300">
-											{f.lastCaptureError ? `⚠ ${f.lastCaptureError}` : 'Not captured yet — click “Capture session”.'}
-										</span>
-									}
-								>
-									<span class="text-emerald-300">✓ Session captured — {f.cookieCount} cookie(s). Bind it to a test in that test’s Settings.</span>
-								</Show>
-							</div>
-							<ol class="space-y-1 pl-1 text-xs text-white/55">
-								<For each={steps(f.dsl)}>{(l, i) => <li><span class="text-white/30">{i() + 1}.</span> {l}</li>}</For>
+							<Show
+								when={f.captured && !f.lastCaptureError}
+								fallback={
+									<div class={`${styles['status']} ${styles['warn']}`}>
+										{f.lastCaptureError ? f.lastCaptureError : 'Not captured yet — click “Capture session”.'}
+									</div>
+								}
+							>
+								<div class={`${styles['status']} ${styles['ok']}`}>
+									<IconCheck size={13} /> Session captured — {f.cookieCount} cookie(s). Bind it to a test in that test’s Settings.
+								</div>
+							</Show>
+							<ol class={styles['preview']}>
+								<For each={steps(f.dsl)}>
+									{(l, i) => (
+										<li>
+											<span class={styles['idx']}>{i() + 1}.</span> {l}
+										</li>
+									)}
+								</For>
 							</ol>
 						</li>
 					)}

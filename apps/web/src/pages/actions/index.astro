@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import StepBuilder from '../../components/StepBuilder.tsx';
 import DeleteAction from '../../components/DeleteAction.tsx';
 import { createCaller } from '../../server/routers';
@@ -18,42 +19,38 @@ function preview(dsl: string): string[] {
 ---
 
 <Layout title="Actions">
-	<div class="mb-8">
-		<a href="/" class="text-xs text-white/40 hover:text-white/70">← home</a>
-		<h1 class="mt-1 text-2xl font-semibold tracking-tight">Actions</h1>
-		<p class="mt-1 text-sm text-white/40">
-			Reusable groups of steps. Build one here, then drop it into any test from the “Add an action” palette.
-		</p>
-	</div>
+	<PageHeader title="Actions">
+		Reusable groups of steps. Build one here, then drop it into any test from the “Add an action” palette.
+	</PageHeader>
 
-	<div class="grid gap-10 md:grid-cols-[0.85fr_1.15fr]">
+	<div class="split">
 		<section>
-			<h2 class="mb-4 text-sm font-semibold text-white/50">Your actions</h2>
+			<h2 class="col-title">Your actions</h2>
 			{
 				actions.length === 0 ? (
-					<div class="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/40">
-						No actions yet. Build your first one on the right. ⭐
-					</div>
+					<div class="empty">No actions yet. Build your first one on the right.</div>
 				) : (
-					<ul class="space-y-3">
+					<ul class="action-list">
 						{actions.map((a) => {
 							const lines = preview(a.dsl);
 							return (
-								<li class="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-									<div class="mb-2 flex items-center justify-between gap-3">
-										<span class="flex items-center gap-2 font-medium">
-											<span>⭐</span>
+								<li class="action-card">
+									<div class="action-head">
+										<span class="action-name">
+											<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="star" aria-hidden="true">
+												<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+											</svg>
 											{a.name}
 										</span>
-										<div class="flex items-center gap-2">
-											<span class="text-xs text-white/30">{lines.length} step{lines.length === 1 ? '' : 's'}</span>
+										<div class="action-meta">
+											<span class="count">{lines.length} step{lines.length === 1 ? '' : 's'}</span>
 											<DeleteAction client:load id={a.id} />
 										</div>
 									</div>
-									<ol class="space-y-1 pl-1 text-xs text-white/55">
+									<ol class="preview">
 										{lines.map((l, i) => (
 											<li>
-												<span class="text-white/30">{i + 1}.</span> {l}
+												<span class="idx">{i + 1}.</span> {l}
 											</li>
 										))}
 									</ol>
@@ -66,9 +63,103 @@ function preview(dsl: string): string[] {
 		</section>
 
 		<section>
-			<h2 class="mb-1 text-sm font-semibold text-white/50">Build an action</h2>
-			<p class="mb-5 text-sm text-white/40">Add the steps this action should perform, name it, and save.</p>
+			<h2 class="col-title">Build an action</h2>
+			<p class="col-sub">Add the steps this action should perform, name it, and save.</p>
 			<StepBuilder client:only="solid-js" mode="action" />
 		</section>
 	</div>
 </Layout>
+
+<style lang="scss">
+	@use '../../styles/abstracts' as *;
+
+	.split {
+		display: grid;
+		gap: space(10);
+
+		@include at('md') {
+			grid-template-columns: 0.85fr 1.15fr;
+		}
+	}
+
+	.col-title {
+		margin-bottom: space(4);
+		font-size: font-size('sm');
+		font-weight: $weight-semibold;
+		color: var(--text-subtle);
+	}
+
+	.col-sub {
+		margin: space(-3) 0 space(5);
+		font-size: font-size('base');
+		color: var(--text-subtle);
+	}
+
+	.empty {
+		padding: space(8) space(4);
+		border: 1px dashed var(--border);
+		border-radius: radius('xl');
+		text-align: center;
+		font-size: font-size('base');
+		color: var(--text-subtle);
+	}
+
+	.action-list {
+		display: flex;
+		flex-direction: column;
+		gap: space(3);
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.action-card {
+		@include card;
+		padding: space(4);
+	}
+
+	.action-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: space(3);
+		margin-bottom: space(2);
+	}
+
+	.action-name {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		font-weight: $weight-medium;
+
+		.star {
+			color: var(--accent-text);
+		}
+	}
+
+	.action-meta {
+		display: flex;
+		align-items: center;
+		gap: space(2);
+	}
+
+	.count {
+		font-size: font-size('xs');
+		color: var(--text-faint);
+	}
+
+	.preview {
+		display: flex;
+		flex-direction: column;
+		gap: space(1);
+		padding-left: space(1);
+		list-style: none;
+		margin: 0;
+		font-size: font-size('xs');
+		color: var(--text-muted);
+
+		.idx {
+			color: var(--text-faint);
+		}
+	}
+</style>
