@@ -17,6 +17,7 @@ const BUILDER_KEYS = [
 	'ai',
 	'totp',
 	'setVar',
+	'only',
 	'execJs',
 	'assertJs',
 	'assertNotVisible',
@@ -51,7 +52,13 @@ function loc(l: Locator): string {
  * @returns a newline-separated script (bare `goto(...)`, `click(...)`, … calls).
  */
 export function toCode(test: Test): string {
-	return test.steps.map(stepToLine).join('\n');
+	return test.steps
+		.map((s) => {
+			const line = stepToLine(s);
+			// Preserve a per-step condition by wrapping the call, so fromCode(toCode(t)) === t.
+			return s.condition !== undefined && s.condition !== '' ? `only(${JSON.stringify(s.condition)}, () => ${line})` : line;
+		})
+		.join('\n');
 }
 
 function stepToLine(s: Step): string {
@@ -147,6 +154,12 @@ function stepToLine(s: Step): string {
 export function fromCode(code: string): Test {
 	const steps: unknown[] = [];
 	const builder: Record<string, (...args: unknown[]) => void> = {
+		// Wrapper that gates the step(s) its callback pushes with a JS/`{{var}}` condition.
+		only: (condition, fn) => {
+			const before = steps.length;
+			(fn as () => void)();
+			for (let i = before; i < steps.length; i++) (steps[i] as { condition?: string }).condition = condition as string;
+		},
 		goto: (url) => steps.push({ type: 'goto', url }),
 		click: (locator, opts) => steps.push({ type: 'click', locator, ...((opts as object) ?? {}) }),
 		fill: (locator, value) => steps.push({ type: 'fill', locator, value }),

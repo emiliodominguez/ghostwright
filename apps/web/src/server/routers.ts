@@ -3,9 +3,19 @@ import { encrypt } from '@ghostwright/crypto';
 import { db, tables } from '@ghostwright/db';
 import { describeStep, expandActions, parseTest, testSettingsSchema, type Step } from '@ghostwright/dsl';
 import { runQueue, type RunJob } from '@ghostwright/queue';
+import { TRPCError } from '@trpc/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { publicProcedure, router } from './trpc';
+
+/** Validate a test-DSL string, surfacing malformed input as a 400 (not a 500). */
+function validateDsl(dsl: string): void {
+	try {
+		parseTest(JSON.parse(dsl));
+	} catch (e) {
+		throw new TRPCError({ code: 'BAD_REQUEST', message: `invalid test DSL: ${e instanceof Error ? e.message : String(e)}` });
+	}
+}
 
 /** Load a saved action's steps, for expanding live `actionRef` references. */
 async function loadActionSteps(actionId: string): Promise<Step[] | null> {
@@ -23,25 +33,47 @@ export async function describeExpanded(dsl: string): Promise<string[]> {
 	}
 }
 
-/**
- * Parse data-driven rows from a JSON array or CSV (first line = headers).
- *
- * @param text - pasted JSON or CSV.
- * @returns an array of `{column: value}` rows (empty if the input is blank).
- */
+/** Parse one CSV line, honoring double-quoted fields (with embedded commas and "" escapes). */
+function parseCsvLine(line: string): string[] {
+	const out: string[] = [];
+	let cur = '';
+	let inQuotes = false;
+	for (let i = 0; i < line.length; i++) {
+		const c = line[i];
+		if (inQuotes) {
+			if (c === '"' && line[i + 1] === '"') {
+				cur += '"';
+				i++;
+			} else if (c === '"') inQuotes = false;
+			else cur += c;
+		} else if (c === '"') inQuotes = true;
+		else if (c === ',') {
+			out.push(cur.trim());
+			cur = '';
+		} else cur += c;
+	}
+	out.push(cur.trim());
+	return out;
+}
+
 export function parseDataRows(text: string): Record<string, string>[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 	if (trimmed.startsWith('[')) {
-		const arr = JSON.parse(trimmed) as Record<string, unknown>[];
-		return arr.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)])));
+		let arr: unknown;
+		try {
+			arr = JSON.parse(trimmed);
+		} catch {
+			throw new Error('data is not valid JSON');
+		}
+		if (!Array.isArray(arr)) throw new Error('JSON data must be an array of row objects');
+		return (arr as Record<string, unknown>[]).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)])));
 	}
 	const lines = trimmed.split(/\r?\n/).filter((l) => l.trim());
 	if (lines.length < 2) return [];
-	const split = (l: string) => l.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
-	const headers = split(lines[0]);
+	const headers = parseCsvLine(lines[0]);
 	return lines.slice(1).map((line) => {
-		const cells = split(line);
+		const cells = parseCsvLine(line);
 		return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? '']));
 	});
 }
@@ -82,7 +114,7 @@ export const appRouter = router({
 			.input(z.object({ name: z.string().min(1), dsl: z.string() }))
 			.mutation(async ({ input }) => {
 				// Validate the DSL before persisting — reject malformed tests at the boundary.
-				parseTest(JSON.parse(input.dsl));
+				validateDsl(input.dsl);
 				const projectId = await ensureDefaultProject();
 				const [test] = await db.insert(tables.test).values({ projectId, name: input.name }).returning();
 				const [version] = await db.insert(tables.testVersion).values({ testId: test.id, dsl: input.dsl }).returning();
@@ -99,7 +131,12 @@ export const appRouter = router({
 
 		// Attach data-driven rows from pasted CSV (headers on row 1) or a JSON array; empty clears it.
 		setData: publicProcedure.input(z.object({ id: z.string(), text: z.string() })).mutation(async ({ input }) => {
-			const rows = parseDataRows(input.text);
+			let rows: Record<string, string>[];
+			try {
+				rows = parseDataRows(input.text);
+			} catch (e) {
+				throw new TRPCError({ code: 'BAD_REQUEST', message: e instanceof Error ? e.message : 'invalid data' });
+			}
 			await db.update(tables.test).set({ dataJson: rows.length ? JSON.stringify(rows) : null }).where(eq(tables.test.id, input.id));
 			return { rows: rows.length };
 		}),
@@ -161,7 +198,7 @@ export const appRouter = router({
 		}),
 		create: publicProcedure.input(z.object({ name: z.string().min(1), dsl: z.string() })).mutation(async ({ input }) => {
 			// Validate the steps before persisting — an action is a normal DSL test body.
-			parseTest(JSON.parse(input.dsl));
+			validateDsl(input.dsl);
 			const projectId = await ensureDefaultProject();
 			const [row] = await db.insert(tables.action).values({ projectId, name: input.name, dsl: input.dsl }).returning();
 			return { id: row.id };
@@ -169,7 +206,7 @@ export const appRouter = router({
 		update: publicProcedure
 			.input(z.object({ id: z.string(), name: z.string().min(1).optional(), dsl: z.string().optional() }))
 			.mutation(async ({ input }) => {
-				if (input.dsl) parseTest(JSON.parse(input.dsl));
+				if (input.dsl) validateDsl(input.dsl);
 				const patch: Record<string, string> = {};
 				if (input.name) patch.name = input.name;
 				if (input.dsl) patch.dsl = input.dsl;
@@ -201,7 +238,7 @@ export const appRouter = router({
 				.then((rows) => rows.map((r) => ({ ...r, captured: Boolean(r.captured) })));
 		}),
 		create: publicProcedure.input(z.object({ name: z.string().min(1), dsl: z.string() })).mutation(async ({ input }) => {
-			parseTest(JSON.parse(input.dsl));
+			validateDsl(input.dsl);
 			const projectId = await ensureDefaultProject();
 			const [row] = await db.insert(tables.loginFlow).values({ projectId, name: input.name, dsl: input.dsl }).returning();
 			return { id: row.id };

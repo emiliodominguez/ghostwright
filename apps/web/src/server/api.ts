@@ -10,7 +10,8 @@ import { eq } from 'drizzle-orm';
  * @returns true when the key is valid.
  */
 export async function authApiKey(request: Request, url: URL): Promise<boolean> {
-	const key = url.searchParams.get('apiKey') ?? request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+	// `||` (not `??`) so an empty `?apiKey=` falls through to the Authorization header.
+	const key = url.searchParams.get('apiKey') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
 	if (!key) return false;
 	const row = await db.query.apiKey.findFirst({ where: eq(tables.apiKey.key, key) });
 	return Boolean(row);

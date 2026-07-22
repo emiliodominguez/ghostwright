@@ -31,6 +31,7 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 		if (s.failOnJsError) out.failOnJsError = true;
 		if (s.retry) out.retry = true;
 		if (s.loginFlowId) out.loginFlowId = s.loginFlowId;
+		if (s.headers && Object.keys(s.headers).length) out.headers = s.headers;
 		return out;
 	}
 

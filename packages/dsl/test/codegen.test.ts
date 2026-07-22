@@ -42,6 +42,18 @@ describe('codegen round-trip', () => {
 		expect(toCode(t)).toContain('assertJs("return document.title.length > 0")');
 	});
 
+	it('round-trips per-step conditions (via only(...))', () => {
+		const t = parseTest({
+			steps: [
+				{ type: 'refresh', condition: 'return isLoggedIn' },
+				{ type: 'click', locator: { css: '#x' } },
+				{ type: 'goto', url: '/y', condition: 'return {{count}} > 0' },
+			],
+		});
+		expect(fromCode(toCode(t))).toEqual(t);
+		expect(toCode(t).split('\n')[0]).toBe('only("return isLoggedIn", () => refresh())');
+	});
+
 	it('round-trips setVar and uses interpolation syntax', () => {
 		const t = parseTest({ steps: [{ type: 'setVar', name: 'email', value: '{{internet.email}}' }] });
 		expect(fromCode(toCode(t))).toEqual(t);

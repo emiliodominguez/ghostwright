@@ -94,7 +94,9 @@ export async function healLocator(page: StepPage, loc: Locator): Promise<StepLoc
  */
 export function compile(step: Step): CompiledStep {
 	const compiled = buildRunner(step);
-	if (step.condition !== undefined) {
+	// An empty/whitespace condition means "no condition" — otherwise it would evaluate to
+	// undefined (falsy) and skip the step forever.
+	if (step.condition !== undefined && step.condition.trim() !== '') {
 		const cond = step.condition;
 		compiled.shouldRun = async (page, ctx) => Boolean(await page.evaluate(wrapJs(iv(cond, ctx))));
 	}

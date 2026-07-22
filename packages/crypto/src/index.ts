@@ -1,11 +1,21 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
-// AES-256-GCM at rest. In production the key is sourced from Infisical; here it comes
-// from env (GHOSTWRIGHT_SECRET_KEY), hashed to 32 bytes. Stored blobs (login-flow
-// storageState, TOTP seeds) are ciphertext produced here.
-const key = createHash('sha256')
-	.update(process.env.GHOSTWRIGHT_SECRET_KEY ?? 'dev-insecure-key')
-	.digest();
+// AES-256-GCM at rest for stored blobs (login-flow storageState, secrets/TOTP seeds).
+// The key comes from env (GHOSTWRIGHT_SECRET_KEY), hashed to 32 bytes. In production a
+// missing/weak key is fatal — otherwise everything would be encrypted under a key derived
+// from a public string, so anyone with the DB (or a backup) could decrypt all secrets.
+function resolveKey(): Buffer {
+	const raw = process.env.GHOSTWRIGHT_SECRET_KEY;
+	const isProd = process.env.NODE_ENV === 'production';
+	if (isProd && (!raw || raw.length < 16)) {
+		throw new Error('GHOSTWRIGHT_SECRET_KEY must be set to a strong value (>=16 chars) in production');
+	}
+	return createHash('sha256')
+		.update(raw ?? 'dev-insecure-key')
+		.digest();
+}
+
+const key = resolveKey();
 
 /** Encrypt a UTF-8 string to `iv:tag:ciphertext` (all base64). */
 export function encrypt(plain: string): string {

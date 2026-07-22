@@ -1,19 +1,24 @@
 import { db, tables } from '@ghostwright/db';
 import { createLogger } from '@ghostwright/otel/logger';
-import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
+import { assertUrlAllowed } from './net-guard';
 
 const log = createLogger('worker.alerts');
 
-/** The status of the most recent prior run for a test, for change-detection. */
-async function previousStatus(testId: string, currentRunId: string): Promise<string | undefined> {
+/**
+ * The status of the most recent *finalized* prior run for this test on the SAME browser.
+ * Scoping to the same browser and to finished runs avoids fan-out siblings (created at
+ * near-identical times, some still running) being mistaken for "the previous result".
+ */
+async function previousStatus(testId: string, currentRunId: string, browser: string): Promise<string | undefined> {
 	const versions = await db.select({ id: tables.testVersion.id }).from(tables.testVersion).where(eq(tables.testVersion.testId, testId));
 	const ids = versions.map((v) => v.id);
 	if (!ids.length) return undefined;
 	const prev = await db
 		.select({ status: tables.run.status })
 		.from(tables.run)
-		.where(and(inArray(tables.run.testVersionId, ids), ne(tables.run.id, currentRunId)))
-		.orderBy(desc(tables.run.createdAt))
+		.where(and(inArray(tables.run.testVersionId, ids), ne(tables.run.id, currentRunId), eq(tables.run.browser, browser), isNotNull(tables.run.finishedAt)))
+		.orderBy(desc(tables.run.finishedAt))
 		.limit(1);
 	return prev[0]?.status;
 }
@@ -36,8 +41,10 @@ export async function dispatchAlerts(runId: string, testVersionId: string, statu
 	const alerts = await db.select().from(tables.alert).where(eq(tables.alert.projectId, test.projectId));
 	if (!alerts.length) return;
 
+	const run = await db.query.run.findFirst({ where: eq(tables.run.id, runId) });
+	const browser = run?.browser ?? 'chromium';
 	const failed = status === 'failed' || status === 'errored';
-	const prev = await previousStatus(test.id, runId);
+	const prev = await previousStatus(test.id, runId, browser);
 	const changed = prev !== undefined && prev !== status;
 
 	const emoji = failed ? '❌' : '✅';
@@ -57,7 +64,7 @@ export async function dispatchAlerts(runId: string, testVersionId: string, statu
 				} else if (a.channel === 'teams') {
 					await postJson(a.target, { title: 'Ghostwright', text: `${text}\n\n[View run](${dashUrl})` });
 				} else if (a.channel === 'pagerduty') {
-					await pagerDuty(a.target, failed, test.id, test.name, error, dashUrl);
+					await pagerDuty(a.target, failed, `${test.id}-${browser}`, test.name, error, dashUrl);
 				} else if (a.channel === 'email') {
 					await sendEmail(a.target, text, dashUrl);
 				}
@@ -69,17 +76,18 @@ export async function dispatchAlerts(runId: string, testVersionId: string, statu
 	);
 }
 
-/** PagerDuty Events API v2 — trigger an incident on failure, resolve it on pass (deduped per test). */
-async function pagerDuty(routingKey: string, failed: boolean, testId: string, testName: string, error: string | undefined, url: string): Promise<void> {
+/** PagerDuty Events API v2 — trigger an incident on failure, resolve on pass (deduped per test×browser). */
+async function pagerDuty(routingKey: string, failed: boolean, dedupBase: string, testName: string, error: string | undefined, url: string): Promise<void> {
 	await postJson('https://events.pagerduty.com/v2/enqueue', {
 		routing_key: routingKey,
 		event_action: failed ? 'trigger' : 'resolve',
-		dedup_key: `ghostwright-${testId}`,
+		dedup_key: `ghostwright-${dedupBase}`,
 		payload: { summary: `Ghostwright: ${testName} ${failed ? 'failed' : 'recovered'}${error ? ` — ${error.split('\n')[0]}` : ''}`, source: url, severity: 'error' },
 	});
 }
 
 async function postJson(url: string, body: unknown): Promise<void> {
+	assertUrlAllowed(url);
 	const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 	if (!res.ok) throw new Error(`webhook ${res.status}`);
 }

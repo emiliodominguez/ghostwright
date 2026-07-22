@@ -15,6 +15,13 @@ function xmlEscape(s: string): string {
 	return s.replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]!);
 }
 
+/** Quote/escape a CSV cell and neutralize spreadsheet formula injection (leading = + - @). */
+function csvCell(value: string | null | undefined): string {
+	let v = (value ?? '').replace(/\r?\n/g, ' ');
+	if (/^[=+\-@]/.test(v)) v = `'${v}`;
+	return `"${v.replace(/"/g, '""')}"`;
+}
+
 /**
  * GET /api/v1/tests/:id/results?format=csv|xunit (default csv).
  * Exports the test's run history for CI reporting.
@@ -37,12 +44,14 @@ export const GET: APIRoute = async ({ request, url, params }) => {
 		return new Response(xml, { headers: { 'content-type': 'application/xml' } });
 	}
 
+	if (url.searchParams.get('format') && format !== 'csv') return json({ error: 'format must be csv or xunit' }, 400);
 	const rows = [
 		'id,status,browser,viewport,startedAt,finishedAt,error',
 		...runs.map((r) =>
-			[r.id, r.status, r.browser, r.viewport, r.startedAt?.toISOString() ?? '', r.finishedAt?.toISOString() ?? '', `"${(r.error ?? '').replace(/"/g, '""').replace(/\n/g, ' ')}"`].join(','),
+			[r.id, r.status, r.browser, r.viewport, r.startedAt?.toISOString() ?? '', r.finishedAt?.toISOString() ?? '', r.error]
+				.map(csvCell)
+				.join(','),
 		),
 	];
-	if (url.searchParams.get('format') && format !== 'csv') return json({ error: 'format must be csv or xunit' }, 400);
 	return new Response(rows.join('\n'), { headers: { 'content-type': 'text/csv' } });
 };

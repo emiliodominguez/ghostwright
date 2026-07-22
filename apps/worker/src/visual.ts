@@ -33,7 +33,9 @@ export function makeVisualSink(opts: {
 	workDir: string;
 	pending: { current?: VisualOutcome };
 }): VisualSink {
-	return async (name, image, { ignoreRegions, tolerancePct }) => {
+	return async (rawName, image, { ignoreRegions, tolerancePct }) => {
+		// Slugify the user-supplied name so it can't escape the key namespace (`/`, `..`) or collide.
+		const name = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.\.+/g, '_').slice(0, 100) || 'default';
 		const outcome: VisualOutcome = {};
 		opts.pending.current = outcome;
 

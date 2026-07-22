@@ -17,6 +17,12 @@ describe('expandActions', () => {
 		expect(out).toEqual([goto('/deep')]);
 	});
 
+	it('carries an actionRef condition onto its expanded steps', async () => {
+		const load = async (id: string) => (id === 'login' ? [goto('/login'), goto('/home')] : null);
+		const out = await expandActions([{ type: 'actionRef', actionId: 'login', condition: 'return needsLogin' }], load);
+		expect(out.every((s) => (s as { condition?: string }).condition === 'return needsLogin')).toBe(true);
+	});
+
 	it('throws on a reference cycle (depth cap)', async () => {
 		const load = async () => [{ type: 'actionRef', actionId: 'loop' } as Step];
 		await expect(expandActions([{ type: 'actionRef', actionId: 'loop' }], load)).rejects.toThrow(/nesting/);

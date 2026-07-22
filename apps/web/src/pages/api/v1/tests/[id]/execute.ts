@@ -2,10 +2,11 @@ import type { APIRoute } from 'astro';
 import { authApiKey, enqueueRun, json, resultJson, unauthorized, waitForRun } from '../../../../../server/api';
 
 /**
- * Execute a test. Waits for the result by default; `?immediate=1` returns the
- * run id without waiting (poll GET /api/v1/results/:id later).
+ * POST /api/v1/tests/:id/execute — run a test. Waits for the result by default;
+ * `?immediate=1` returns the run id without waiting (poll GET /api/v1/results/:id later).
+ * POST-only: executing is side-effecting, so it must not be triggerable by a GET/prefetch.
  */
-const handler: APIRoute = async ({ request, url, params }) => {
+export const POST: APIRoute = async ({ request, url, params }) => {
 	if (!(await authApiKey(request, url))) return unauthorized();
 	const runId = await enqueueRun(params.id!);
 	if (!runId) return json({ error: 'test not found or has no version' }, 404);
@@ -14,6 +15,3 @@ const handler: APIRoute = async ({ request, url, params }) => {
 	await waitForRun(runId);
 	return json((await resultJson(runId)) ?? { id: runId, status: 'unknown' });
 };
-
-export const GET = handler;
-export const POST = handler;

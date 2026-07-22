@@ -7,9 +7,19 @@ import { authApiKey, json, unauthorized } from '../../../../server/api';
 /** POST /api/v1/tests/import — create a test from JSON `{ name, steps }` (the export format). */
 export const POST: APIRoute = async ({ request, url }) => {
 	if (!(await authApiKey(request, url))) return unauthorized();
-	const body = (await request.json()) as { name?: string; steps?: unknown };
+	let body: { name?: string; steps?: unknown };
+	try {
+		body = (await request.json()) as { name?: string; steps?: unknown };
+	} catch {
+		return json({ error: 'request body must be JSON' }, 400);
+	}
 	if (!body.name || !body.steps) return json({ error: 'name and steps are required' }, 400);
-	const dsl = JSON.stringify({ steps: parseTest({ steps: body.steps }).steps });
+	let dsl: string;
+	try {
+		dsl = JSON.stringify({ steps: parseTest({ steps: body.steps }).steps });
+	} catch (e) {
+		return json({ error: `invalid steps: ${e instanceof Error ? e.message : String(e)}` }, 400);
+	}
 
 	const existing = await db.query.project.findFirst();
 	let projectId = existing?.id;

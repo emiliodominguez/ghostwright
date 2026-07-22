@@ -8,14 +8,18 @@ export default function TestData(props: { testId: string; initialRows: number })
 	const [busy, setBusy] = createSignal(false);
 	const [rows, setRows] = createSignal(props.initialRows);
 	const [saved, setSaved] = createSignal(false);
+	const [err, setErr] = createSignal('');
 
 	async function save() {
 		setBusy(true);
+		setErr('');
 		try {
 			const res = await trpc.tests.setData.mutate({ id: props.testId, text: text() });
 			setRows(res.rows);
 			setSaved(true);
 			setTimeout(() => setSaved(false), 3000);
+		} catch (e) {
+			setErr(e instanceof Error ? e.message : 'Could not save data.');
 		} finally {
 			setBusy(false);
 		}
@@ -45,6 +49,9 @@ export default function TestData(props: { testId: string; initialRows: number })
 						</button>
 						<Show when={saved()}>
 							<span class="text-sm text-emerald-300">Saved {rows()} row(s) ✓</span>
+						</Show>
+						<Show when={err()}>
+							<span class="text-sm text-red-300">{err()}</span>
 						</Show>
 					</div>
 				</div>
