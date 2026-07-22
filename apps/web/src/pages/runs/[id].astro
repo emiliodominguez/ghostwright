@@ -252,18 +252,45 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 
 	{
 		/* The trace viewer is heavy and autofocuses on load (which scrolls the page to
-		   it). Load it only on an explicit click, so entering the page never jumps. */
+		   it). Load it only on an explicit click, so entering the page never jumps.
+		   Its service worker must be active before the snapshot iframes load, or they
+		   race it, miss the SW, and render our 404 page unstyled — so pre-register it
+		   and wait for activation before mounting the viewer. */
 	}
 	<script is:inline>
 		(function () {
 			var btn = document.querySelector('[data-trace-load]');
 			var frame = document.querySelector('iframe[data-trace-src]');
 			if (!btn || !frame) return;
+
+			function ensureTraceSW() {
+				if (!('serviceWorker' in navigator)) return Promise.resolve();
+				return navigator.serviceWorker
+					.register('/trace-viewer/sw.bundle.js', { scope: '/trace-viewer/' })
+					.then(function (reg) {
+						if (reg.active) return;
+						var sw = reg.installing || reg.waiting;
+						if (!sw) return;
+						return new Promise(function (resolve) {
+							sw.addEventListener('statechange', function () {
+								if (sw.state === 'activated') resolve();
+							});
+						});
+					})
+					.catch(function () {});
+			}
+
+			// Warm the SW up as soon as the page is idle.
+			ensureTraceSW();
+
 			btn.addEventListener('click', function () {
-				frame.src = frame.getAttribute('data-trace-src');
-				frame.removeAttribute('data-trace-src');
-				frame.hidden = false;
-				btn.remove();
+				btn.setAttribute('disabled', '');
+				ensureTraceSW().then(function () {
+					frame.src = frame.getAttribute('data-trace-src');
+					frame.removeAttribute('data-trace-src');
+					frame.hidden = false;
+					btn.remove();
+				});
 			});
 		})();
 	</script>
