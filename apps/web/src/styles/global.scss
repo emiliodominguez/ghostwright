@@ -308,3 +308,64 @@ body {
 		opacity: 0.35;
 	}
 }
+
+// -----------------------------------------------------------------------------
+// Custom form controls — checkboxes & radios, themed to the design system.
+// `appearance: none` keeps the real, accessible input while we draw the box.
+// -----------------------------------------------------------------------------
+
+input[type='checkbox'],
+input[type='radio'] {
+	appearance: none;
+	-webkit-appearance: none;
+	flex-shrink: 0;
+	display: inline-grid;
+	place-content: center;
+	width: 1.1rem;
+	height: 1.1rem;
+	margin: 0;
+	border: 1.5px solid var(--border-strong);
+	background-color: var(--field-bg);
+	background-repeat: no-repeat;
+	background-position: center;
+	cursor: pointer;
+	transition:
+		border-color $transition-fast $ease,
+		background-color $transition-fast $ease,
+		box-shadow $transition-fast $ease;
+
+	&:hover:not(:disabled):not(:checked) {
+		border-color: var(--accent-border);
+	}
+
+	&:focus-visible {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+}
+
+input[type='checkbox'] {
+	border-radius: radius('sm');
+
+	&:checked {
+		border-color: var(--accent);
+		background-color: var(--accent);
+		background-size: 0.75rem;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+	}
+}
+
+input[type='radio'] {
+	border-radius: 50%;
+
+	&:checked {
+		border-color: var(--accent);
+		background-image: radial-gradient(circle at center, var(--accent) 0 34%, transparent 40%);
+	}
+}

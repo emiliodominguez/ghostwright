@@ -1,6 +1,7 @@
 import { createSignal, For } from 'solid-js';
 import { trpc } from '../lib/trpc';
 import Panel from './Panel';
+import Select from './Select';
 import { IconBell } from './icons';
 import styles from './panels.module.scss';
 
@@ -46,18 +47,32 @@ export default function TestAlerts(props: { testId: string; initial: Alert[] }) 
 					)}
 				</For>
 				<div class={styles['form-row']}>
-					<select class={styles['select']} value={channel()} onChange={(e) => setChannel(e.currentTarget.value)}>
-						<option value="slack">Slack</option>
-						<option value="webhook">Webhook</option>
-						<option value="teams">Microsoft Teams</option>
-						<option value="pagerduty">PagerDuty</option>
-						<option value="email">Email</option>
-					</select>
-					<select class={styles['select']} value={trigger()} onChange={(e) => setTrigger(e.currentTarget.value)}>
-						<option value="failure">On failure</option>
-						<option value="change">On status change</option>
-						<option value="always">Every run</option>
-					</select>
+					<div class={styles['select-sm']}>
+						<Select
+							value={channel()}
+							onChange={setChannel}
+							ariaLabel="Alert channel"
+							options={[
+								{ value: 'slack', label: 'Slack' },
+								{ value: 'webhook', label: 'Webhook' },
+								{ value: 'teams', label: 'Microsoft Teams' },
+								{ value: 'pagerduty', label: 'PagerDuty' },
+								{ value: 'email', label: 'Email' },
+							]}
+						/>
+					</div>
+					<div class={styles['select-sm']}>
+						<Select
+							value={trigger()}
+							onChange={setTrigger}
+							ariaLabel="Alert trigger"
+							options={[
+								{ value: 'failure', label: 'On failure' },
+								{ value: 'change', label: 'On status change' },
+								{ value: 'always', label: 'Every run' },
+							]}
+						/>
+					</div>
 					<input
 						class={`${styles['input']} ${styles['grow']}`}
 						value={target()}

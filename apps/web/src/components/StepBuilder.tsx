@@ -3,6 +3,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { trpc } from '../lib/trpc';
 import CodeEditor from './CodeEditor';
+import Select from './Select';
 import { ActionIcon, IconChevronDown, IconChevronUp, IconClose, IconCode, IconSparkle, IconStar, IconTrash } from './icons';
 import styles from './StepBuilder.module.scss';
 
@@ -143,13 +144,12 @@ function StrategyPicker(props: { locator: L; onChange: (l: L) => void }) {
 		<div class={styles['strategy-grid']}>
 			<div>
 				<label class={styles['label']}>How to find it</label>
-				<select
-					class={styles['select']}
+				<Select
 					value={strat()}
-					onChange={(e) => props.onChange(withStrategy(props.locator, e.currentTarget.value, primaryValue(props.locator)))}
-				>
-					<For each={STRATEGIES}>{(s) => <option value={s.value}>{s.label}</option>}</For>
-				</select>
+					onChange={(v) => props.onChange(withStrategy(props.locator, v, primaryValue(props.locator)))}
+					ariaLabel="How to find it"
+					options={STRATEGIES.map((s) => ({ value: s.value, label: s.label }))}
+				/>
 			</div>
 			<Show
 				when={strat() === 'role'}
@@ -168,13 +168,12 @@ function StrategyPicker(props: { locator: L; onChange: (l: L) => void }) {
 				<div class={styles['role-grid']}>
 					<div>
 						<label class={styles['label']}>Kind</label>
-						<select
-							class={styles['select']}
+						<Select
 							value={String(props.locator.role ?? 'button')}
-							onChange={(e) => props.onChange({ ...props.locator, role: e.currentTarget.value })}
-						>
-							<For each={KINDS}>{(k) => <option value={k.value}>{k.label}</option>}</For>
-						</select>
+							onChange={(v) => props.onChange({ ...props.locator, role: v })}
+							ariaLabel="Kind"
+							options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
+						/>
 					</div>
 					<div>
 						<label class={styles['label']}>Labeled / says</label>
@@ -611,18 +610,16 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 					<ElementField locator={step.locator} onChange={setLoc} />
 					<div>
 						<label class={styles['label']}>How to click</label>
-						<select
-							class={styles['select']}
+						<Select
 							value={step.double ? 'double' : (step.button ?? 'left')}
-							onChange={(e) => {
-								const v = e.currentTarget.value;
-								patch({ double: v === 'double', button: v === 'right' ? 'right' : undefined } as Partial<Step>);
-							}}
-						>
-							<option value="left">Single click</option>
-							<option value="double">Double click</option>
-							<option value="right">Right click</option>
-						</select>
+							onChange={(v) => patch({ double: v === 'double', button: v === 'right' ? 'right' : undefined } as Partial<Step>)}
+							ariaLabel="How to click"
+							options={[
+								{ value: 'left', label: 'Single click' },
+								{ value: 'double', label: 'Double click' },
+								{ value: 'right', label: 'Right click' },
+							]}
+						/>
 					</div>
 				</div>
 			);
@@ -716,10 +713,15 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 			return (
 				<div class={styles['field-group']}>
 					<label class={styles['label']}>End the test as</label>
-					<select class={styles['select']} value={step.pass ? 'pass' : 'fail'} onChange={(e) => patch({ pass: e.currentTarget.value === 'pass' })}>
-						<option value="pass">Passed</option>
-						<option value="fail">Failed</option>
-					</select>
+					<Select
+						value={step.pass ? 'pass' : 'fail'}
+						onChange={(v) => patch({ pass: v === 'pass' })}
+						ariaLabel="End the test as"
+						options={[
+							{ value: 'pass', label: 'Passed' },
+							{ value: 'fail', label: 'Failed' },
+						]}
+					/>
 				</div>
 			);
 		case 'fill':
@@ -826,18 +828,19 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 				<div class={styles['picker']}>
 					<div>
 						<label class={styles['label']}>Wait for…</label>
-						<select
-							class={styles['select']}
+						<Select
 							value={mode()}
-							onChange={(e) =>
-								e.currentTarget.value === 'element'
+							onChange={(v) =>
+								v === 'element'
 									? patch({ locator: { role: 'heading' }, state: 'visible', timeoutMs: undefined } as Partial<Step>)
 									: patch({ locator: undefined, state: undefined, timeoutMs: 1000 } as Partial<Step>)
 							}
-						>
-							<option value="time">a fixed amount of time</option>
-							<option value="element">an element to appear / disappear</option>
-						</select>
+							ariaLabel="Wait for"
+							options={[
+								{ value: 'time', label: 'a fixed amount of time' },
+								{ value: 'element', label: 'an element to appear / disappear' },
+							]}
+						/>
 					</div>
 					<Show
 						when={mode() === 'element'}
@@ -858,12 +861,17 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 						<ElementField locator={step.locator!} onChange={(locator) => patch({ locator } as Partial<Step>)} />
 						<div>
 							<label class={styles['label']}>Until it is</label>
-							<select class={styles['select']} value={step.state ?? 'visible'} onChange={(e) => patch({ state: e.currentTarget.value } as Partial<Step>)}>
-								<option value="visible">visible</option>
-								<option value="hidden">hidden</option>
-								<option value="attached">on the page</option>
-								<option value="detached">gone from the page</option>
-							</select>
+							<Select
+								value={step.state ?? 'visible'}
+								onChange={(v) => patch({ state: v } as Partial<Step>)}
+								ariaLabel="Until it is"
+								options={[
+									{ value: 'visible', label: 'visible' },
+									{ value: 'hidden', label: 'hidden' },
+									{ value: 'attached', label: 'on the page' },
+									{ value: 'detached', label: 'gone from the page' },
+								]}
+							/>
 						</div>
 					</Show>
 				</div>
@@ -883,11 +891,16 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 			return (
 				<div class={styles['field-group']}>
 					<label class={styles['label']}>Wait for</label>
-					<select class={styles['select']} value={step.state} onChange={(e) => patch({ state: e.currentTarget.value } as Partial<Step>)}>
-						<option value="networkidle">the page to settle (no network activity)</option>
-						<option value="load">the load event</option>
-						<option value="domcontentloaded">the DOM to be ready</option>
-					</select>
+					<Select
+						value={step.state}
+						onChange={(v) => patch({ state: v } as Partial<Step>)}
+						ariaLabel="Wait for page state"
+						options={[
+							{ value: 'networkidle', label: 'the page to settle (no network activity)' },
+							{ value: 'load', label: 'the load event' },
+							{ value: 'domcontentloaded', label: 'the DOM to be ready' },
+						]}
+					/>
 				</div>
 			);
 		case 'press':

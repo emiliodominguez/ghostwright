@@ -102,12 +102,7 @@
 	gap: space(2);
 	font-size: font-size('base');
 	color: var(--text-muted);
-
-	input[type='checkbox'] {
-		width: 0.95rem;
-		height: 0.95rem;
-		accent-color: var(--accent);
-	}
+	cursor: pointer;
 }
 
 .actions {
@@ -198,4 +193,9 @@
 .grow {
 	flex: 1;
 	min-width: 12rem;
+}
+
+.select-sm {
+	width: 11rem;
+	max-width: 100%;
 }

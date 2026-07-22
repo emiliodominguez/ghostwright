@@ -1,8 +1,9 @@
 import type { TestSettings } from '@ghostwright/dsl';
-import { createSignal, For, onMount, Show } from 'solid-js';
+import { createSignal, onMount, Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { trpc } from '../lib/trpc';
 import Panel from './Panel';
+import Select from './Select';
 import { IconCheck, IconSettings } from './icons';
 import styles from './panels.module.scss';
 
@@ -77,10 +78,15 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 				</div>
 				<div class={styles['col-span-2']}>
 					<label class={styles['label']}>Log in first with</label>
-					<select class={styles['select']} value={s.loginFlowId ?? ''} onChange={(e) => setS('loginFlowId', e.currentTarget.value || undefined)}>
-						<option value="">No login (run as anonymous)</option>
-						<For each={logins()}>{(l) => <option value={l.id}>{l.name}{l.captured ? ' — captured' : ' (not captured)'}</option>}</For>
-					</select>
+					<Select
+						value={s.loginFlowId ?? ''}
+						onChange={(v) => setS('loginFlowId', v || undefined)}
+						ariaLabel="Log in first with"
+						options={[
+							{ value: '', label: 'No login (run as anonymous)' },
+							...logins().map((l) => ({ value: l.id, label: `${l.name}${l.captured ? ' — captured' : ' (not captured)'}` })),
+						]}
+					/>
 				</div>
 				<div class={styles['col-span-2']}>
 					<label class={styles['label']}>Custom user agent</label>

@@ -541,12 +541,7 @@
 	gap: space(2);
 	font-size: font-size('xs');
 	color: var(--text-muted);
-
-	input[type='checkbox'] {
-		width: 0.95rem;
-		height: 0.95rem;
-		accent-color: var(--accent);
-	}
+	cursor: pointer;
 }
 
 .nth-input {

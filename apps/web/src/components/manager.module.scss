@@ -139,6 +139,11 @@
 	@include select-field;
 }
 
+.kind-select {
+	width: 14rem;
+	max-width: 100%;
+}
+
 .add-btn {
 	@include button-primary;
 	margin-top: space(3);

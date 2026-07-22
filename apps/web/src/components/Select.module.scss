@@ -1,0 +1,101 @@
+@use '../styles/abstracts' as *;
+
+.trigger {
+	@include button-reset;
+	@include focusable;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(2);
+	padding: space(2) space(3);
+	border: 1px solid var(--border);
+	border-radius: radius('lg');
+	background-color: var(--field-bg);
+	color: var(--text);
+	font-size: font-size('base');
+	line-height: $leading-snug;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		border-color $transition-base $ease,
+		box-shadow $transition-base $ease;
+
+	&:hover {
+		border-color: var(--border-strong);
+	}
+
+	&[aria-expanded='true'] {
+		border-color: var(--accent-border);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+}
+
+.value {
+	@include truncate;
+}
+
+.placeholder {
+	color: var(--text-faint);
+}
+
+.chevron {
+	flex-shrink: 0;
+	color: var(--text-subtle);
+	transition: transform $transition-base $ease;
+
+	&.open {
+		transform: rotate(180deg);
+	}
+}
+
+.menu {
+	position: fixed;
+	z-index: z('dropdown');
+	max-height: 15rem;
+	overflow-y: auto;
+	padding: space(1);
+	margin: 0;
+	list-style: none;
+	border: 1px solid var(--border-strong);
+	border-radius: radius('lg');
+	background-color: var(--bg-subtle);
+	box-shadow: var(--shadow-lg);
+	@include thin-scrollbar;
+
+	// Subtle entrance.
+	animation: select-in $transition-fast $ease;
+}
+
+@keyframes select-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+.option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(2);
+	padding: space(2) space(2.5);
+	border-radius: radius('md');
+	font-size: font-size('base');
+	color: var(--text-muted);
+	cursor: pointer;
+
+	svg {
+		flex-shrink: 0;
+		color: var(--accent-text);
+	}
+
+	&[aria-selected='true'] {
+		color: var(--text);
+	}
+
+	&.active {
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+}

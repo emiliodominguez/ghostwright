@@ -1,5 +1,6 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 import { trpc } from '../lib/trpc';
+import Select from './Select';
 import { IconKey, IconLock } from './icons';
 import styles from './manager.module.scss';
 
@@ -60,10 +61,17 @@ export default function SecretsManager() {
 			<div class={styles['form']}>
 				<div class={styles['form-grid']}>
 					<input class={styles['input']} placeholder="Name (e.g. appPassword)" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
-					<select class={styles['select']} value={kind()} onChange={(e) => setKind(e.currentTarget.value)}>
-						<option value="password">Password / value</option>
-						<option value="totp">2-factor seed (base32)</option>
-					</select>
+					<div class={styles['kind-select']}>
+						<Select
+							value={kind()}
+							onChange={setKind}
+							ariaLabel="Secret type"
+							options={[
+								{ value: 'password', label: 'Password / value' },
+								{ value: 'totp', label: '2-factor seed (base32)' },
+							]}
+						/>
+					</div>
 					<input
 						class={`${styles['input']} ${styles['col-span-2']}`}
 						type="password"
