@@ -23,11 +23,17 @@ import { createLogger } from '@ghostwright/otel/logger';
 import { recordRun, withRunSpan, withStepSpan } from '@ghostwright/otel';
 import { expect } from '@playwright/test';
 import { eq } from 'drizzle-orm';
-import { chromium, firefox, webkit } from 'playwright-core';
+import { chromium, firefox, webkit, type BrowserContext } from 'playwright-core';
 
 const ENGINES = { chromium, firefox, webkit };
 import type { RunJob } from '@ghostwright/queue';
 import { dispatchAlerts } from './alerts';
+import { EngineUnsupportedError, launchRustwright, type RustwrightSession } from './engines/rustwright';
+
+/** Whether the worker is configured to use the experimental rustwright engine. */
+function useRustwrightEngine(): boolean {
+	return process.env.GHOSTWRIGHT_ENGINE === 'rustwright';
+}
 import { captureLoginState, loadLoginState } from './login';
 import { assertUrlAllowed } from './net-guard';
 import { loadPasswordSecrets, totpCodeForSecret } from './secrets';
@@ -213,12 +219,17 @@ async function runAttempt(
 	log.info({ runId, browser: browserName, steps: testDsl.steps.length, authed: Boolean(storageState) }, 'run started');
 
 	const workDir = await mkdtemp(join(tmpdir(), 'gw-run-'));
-	let browser;
+	const useRw = useRustwrightEngine();
+	// rustwright is Chromium-only and has no browser contexts, so tracing, video, HAR,
+	// storageState and multi-browser are all skipped on it.
+	let browser: Awaited<ReturnType<typeof engine.launch>> | undefined;
+	let rwSession: RustwrightSession | undefined;
 	try {
-		browser = await engine.launch({ headless: true });
+		if (useRw) rwSession = await launchRustwright({ headless: true });
+		else browser = await engine.launch({ headless: true });
 	} catch (err) {
 		// e.g. the browser binary isn't installed — fail this run cleanly instead of hanging.
-		const message = `failed to launch ${browserName}: ${err instanceof Error ? err.message : String(err)}`;
+		const message = `failed to launch ${useRw ? 'rustwright' : browserName}: ${err instanceof Error ? err.message : String(err)}`;
 		await rm(workDir, { recursive: true, force: true });
 		return { runId, status: 'errored', error: message, finalUrl: '' };
 	}
@@ -235,26 +246,36 @@ async function runAttempt(
 	let runError: string | undefined;
 
 	try {
-		const context = await browser.newContext({
-			viewport,
-			recordVideo: { dir: join(workDir, 'video') },
-			...(sensitive ? {} : { recordHar: { path: join(workDir, 'run.har.zip'), content: 'attach' as const, mode: 'full' as const } }),
-			...(settings.userAgent ? { userAgent: settings.userAgent } : {}),
-			...(settings.language ? { locale: settings.language } : {}),
-			...(settings.basicAuth ? { httpCredentials: settings.basicAuth } : {}),
-			...(Object.keys(headers).length ? { extraHTTPHeaders: headers } : {}),
-			...(storageState ? { storageState: JSON.parse(storageState) } : {}),
-		});
-		if (settings.elementTimeoutMs) context.setDefaultTimeout(settings.elementTimeoutMs);
-		await context.tracing.start({ screenshots: true, snapshots: true, sources: true, title: runId });
-		const page = await context.newPage();
-		const video = page.video();
-
-		// Fail the run on an uncaught page JS error when the test opts in.
+		let page: StepPage;
+		let stepExpect: StepExpect;
+		let context: BrowserContext | undefined;
+		let video: { path(): Promise<string> } | undefined;
 		const jsErrors: string[] = [];
-		if (settings.failOnJsError) page.on('pageerror', (e) => jsErrors.push(e.message));
 
-		const stepExpect: StepExpect = (target) => expect(target as never) as never;
+		if (useRw) {
+			// rustwright drives a page directly, with no context and no recording.
+			page = rwSession!.page;
+			stepExpect = rwSession!.expect;
+		} else {
+			context = await browser!.newContext({
+				viewport,
+				recordVideo: { dir: join(workDir, 'video') },
+				...(sensitive ? {} : { recordHar: { path: join(workDir, 'run.har.zip'), content: 'attach' as const, mode: 'full' as const } }),
+				...(settings.userAgent ? { userAgent: settings.userAgent } : {}),
+				...(settings.language ? { locale: settings.language } : {}),
+				...(settings.basicAuth ? { httpCredentials: settings.basicAuth } : {}),
+				...(Object.keys(headers).length ? { extraHTTPHeaders: headers } : {}),
+				...(storageState ? { storageState: JSON.parse(storageState) } : {}),
+			});
+			if (settings.elementTimeoutMs) context.setDefaultTimeout(settings.elementTimeoutMs);
+			await context.tracing.start({ screenshots: true, snapshots: true, sources: true, title: runId });
+			const pwPage = await context.newPage();
+			video = pwPage.video() ?? undefined;
+			// Fail the run on an uncaught page JS error when the test opts in.
+			if (settings.failOnJsError) pwPage.on('pageerror', (e) => jsErrors.push(e.message));
+			page = pwPage as unknown as StepPage;
+			stepExpect = (target) => expect(target as never) as never;
+		}
 		const pendingVisual: { current?: VisualOutcome } = {};
 		const { vars, resolveVar } = makeVarStore();
 		// Seed data-driven row variables first, then password secrets — so a CSV column can
@@ -269,14 +290,18 @@ async function runAttempt(
 			onVisualCheck: makeVisualSink({ testId, browser: browserName, viewport: settings.viewport ?? job.viewport ?? '1280x720', runId, workDir, pending: pendingVisual }),
 			totp: (name) => totpCodeForSecret(orgId, name),
 			resolveFile: (ref) => resolveUploadFile(ref, workDir),
-			ai: async (instruction, sp) => {
-				// _snapshotForAI (ref-decorated, as @playwright/mcp uses) with ariaSnapshot fallback.
-				const pw = sp as unknown as { _snapshotForAI?: () => Promise<string>; locator: (s: string) => { ariaSnapshot: () => Promise<string> } };
-				const snapshot = (await pw._snapshotForAI?.()) ?? (await pw.locator('body').ariaSnapshot());
-				const loc = await resolveStep(snapshot, instruction);
-				if (!loc) throw new Error(`AI could not resolve instruction: ${instruction}`);
-				return resolveLocator(sp, loc) as StepLocator;
-			},
+			ai: useRw
+				? async () => {
+						throw new EngineUnsupportedError('the AI step');
+					}
+				: async (instruction, sp) => {
+						// _snapshotForAI (ref-decorated, as @playwright/mcp uses) with ariaSnapshot fallback.
+						const pw = sp as unknown as { _snapshotForAI?: () => Promise<string>; locator: (s: string) => { ariaSnapshot: () => Promise<string> } };
+						const snapshot = (await pw._snapshotForAI?.()) ?? (await pw.locator('body').ariaSnapshot());
+						const loc = await resolveStep(snapshot, instruction);
+						if (!loc) throw new Error(`AI could not resolve instruction: ${instruction}`);
+						return resolveLocator(sp, loc) as StepLocator;
+					},
 		};
 
 		// Redact secret values from any error we persist/export/alert (e.g. an assertText whose
@@ -300,7 +325,7 @@ async function runAttempt(
 		let willRun = true;
 		if (step.shouldRun) {
 			try {
-				willRun = await step.shouldRun(page as unknown as StepPage, ctx);
+				willRun = await step.shouldRun(page, ctx);
 			} catch {
 				willRun = false;
 			}
@@ -310,7 +335,7 @@ async function runAttempt(
 			stepStatus = 'skipped';
 		} else {
 			try {
-				await withStepSpan({ runId, idx: i, type: step.type }, () => step.run(page as unknown as StepPage, ctx));
+				await withStepSpan({ runId, idx: i, type: step.type }, () => step.run(page, ctx));
 			} catch (err) {
 				if (err instanceof ExitTest) {
 					// Early exit: the run's verdict is set by the exit step; stop cleanly.
@@ -370,24 +395,29 @@ async function runAttempt(
 			// ignore
 		}
 
-		// Flush artifacts to disk (HAR/video finalize on context.close) before uploading.
-		await context.tracing.stop({ path: join(workDir, 'trace.zip') });
-		await context.close();
+		// Artifacts: only the Playwright engine produces a trace, video, or HAR.
+		let traceKey: string | undefined;
+		let harKey: string | undefined;
+		let videoKey: string | undefined;
+		if (!useRw && context) {
+			// Flush artifacts to disk (HAR/video finalize on context.close) before uploading.
+			await context.tracing.stop({ path: join(workDir, 'trace.zip') });
+			await context.close();
+			traceKey = await tryUpload(`runs/${runId}/trace.zip`, join(workDir, 'trace.zip'), 'application/zip');
+			harKey = sensitive ? undefined : await tryUpload(`runs/${runId}/run.har.zip`, join(workDir, 'run.har.zip'), 'application/zip');
+			const videoPath = await video?.path().catch(() => undefined);
+			videoKey = videoPath ? await tryUpload(`runs/${runId}/video.webm`, videoPath, 'video/webm') : undefined;
+			// A best-effort artifact upload failing must NOT flip a real verdict — just note it.
+			if (status === 'passed' && !traceKey) log.warn({ runId }, 'trace upload failed (verdict unchanged)');
+		}
 
-		const traceKey = await tryUpload(`runs/${runId}/trace.zip`, join(workDir, 'trace.zip'), 'application/zip');
-		const harKey = sensitive ? undefined : await tryUpload(`runs/${runId}/run.har.zip`, join(workDir, 'run.har.zip'), 'application/zip');
-		const videoPath = await video?.path().catch(() => undefined);
-		const videoKey = videoPath ? await tryUpload(`runs/${runId}/video.webm`, videoPath, 'video/webm') : undefined;
-
-		// A best-effort artifact upload failing must NOT flip a real verdict — just note it.
-		if (status === 'passed' && !traceKey) log.warn({ runId }, 'trace upload failed (verdict unchanged)');
-
-		log.info({ runId, status, traceKey }, 'attempt complete');
+		log.info({ runId, status, engine: useRw ? 'rustwright' : browserName, traceKey }, 'attempt complete');
 		// The run row is finalized by executeRun (once), so a re-auth retry doesn't flash a failed status.
 		return { runId, status, error: redact(runError), finalUrl, traceKey, harKey, videoKey, screenshotKey };
 	} finally {
-		// Always release the browser and temp dir, even if context creation / a step / teardown threw.
-		await browser.close().catch(() => {});
+		// Always release the browser and temp dir, even if setup / a step / teardown threw.
+		if (browser) await browser.close().catch(() => {});
+		if (rwSession) await rwSession.close().catch(() => {});
 		await rm(workDir, { recursive: true, force: true }).catch(() => {});
 	}
 }
