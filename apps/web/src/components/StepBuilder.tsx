@@ -2,9 +2,10 @@ import { describeStep, parseTest, toCode, type Locator, type Step } from '@ghost
 import { createSignal, For, onMount, Show } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { trpc } from '../lib/trpc';
+import AddStepMenu from './AddStepMenu';
 import CodeEditor from './CodeEditor';
 import Select from './Select';
-import { ActionIcon, IconChevronDown, IconChevronUp, IconClose, IconCode, IconSparkle, IconStar, IconTrash } from './icons';
+import { IconChevronDown, IconChevronUp, IconClose, IconCode, IconSparkle, IconStar, IconTrash } from './icons';
 import styles from './StepBuilder.module.scss';
 
 type SavedAction = { id: string; name: string; dsl: string };
@@ -37,78 +38,6 @@ const STRATEGIES: { value: string; label: string; hint: string }[] = [
 	{ value: 'xpath', label: 'By XPath (advanced)', hint: 'e.g. //button[@id="go"]' },
 ];
 const STRAT_KEYS = ['role', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath', 'ref'] as const;
-
-type ActionDef = { type: Step['type']; label: string; make: () => Step };
-
-/**
- * Actions grouped into scannable categories (most-reached-for first within each),
- * so the palette reads as a handful of small sections rather than one long wall.
- */
-const ACTION_GROUPS: { category: string; actions: ActionDef[] }[] = [
-	{
-		category: 'Navigate',
-		actions: [
-			{ type: 'goto', label: 'Go to a web page', make: () => ({ type: 'goto', url: 'https://' }) },
-			{ type: 'back', label: 'Go back', make: () => ({ type: 'back' }) },
-			{ type: 'refresh', label: 'Refresh the page', make: () => ({ type: 'refresh' }) },
-			{ type: 'scroll', label: 'Scroll', make: () => ({ type: 'scroll' }) },
-		],
-	},
-	{
-		category: 'Interact',
-		actions: [
-			{ type: 'click', label: 'Click something', make: () => ({ type: 'click', locator: { role: 'button' } }) },
-			{ type: 'fill', label: 'Type some text', make: () => ({ type: 'fill', locator: { role: 'textbox' }, value: '' }) },
-			{ type: 'select', label: 'Choose from a dropdown', make: () => ({ type: 'select', locator: { role: 'combobox' }, values: [''] }) },
-			{ type: 'hover', label: 'Hover over something', make: () => ({ type: 'hover', locator: { role: 'button' } }) },
-			{ type: 'press', label: 'Press a key', make: () => ({ type: 'press', key: 'Enter' }) },
-			{ type: 'dragAndDrop', label: 'Drag and drop', make: () => ({ type: 'dragAndDrop', from: { role: 'button' }, to: { role: 'button' } }) },
-			{ type: 'upload', label: 'Upload a file', make: () => ({ type: 'upload', locator: { role: 'button' }, files: [''] }) },
-			{ type: 'totp', label: 'Enter a 2-factor code', make: () => ({ type: 'totp', locator: { role: 'textbox' }, secret: '' }) },
-		],
-	},
-	{
-		category: 'Check',
-		actions: [
-			{ type: 'assertVisible', label: 'Check something is visible', make: () => ({ type: 'assertVisible', locator: { role: 'heading' } }) },
-			{ type: 'assertText', label: 'Check the text on the page', make: () => ({ type: 'assertText', locator: { role: 'heading' }, text: '', mode: 'contains' }) },
-			{ type: 'assertUrl', label: 'Check the web address', make: () => ({ type: 'assertUrl', url: '/', exact: false }) },
-			{ type: 'assertNotVisible', label: 'Check something is hidden', make: () => ({ type: 'assertNotVisible', locator: { role: 'heading' } }) },
-			{ type: 'assertPresent', label: 'Check something exists', make: () => ({ type: 'assertPresent', locator: { role: 'button' } }) },
-			{ type: 'assertNotPresent', label: 'Check something is gone', make: () => ({ type: 'assertNotPresent', locator: { role: 'button' } }) },
-			{ type: 'assertNotText', label: 'Check text is absent', make: () => ({ type: 'assertNotText', locator: { role: 'heading' }, text: '', mode: 'contains' }) },
-			{ type: 'visualCheck', label: 'Compare against a saved look', make: () => ({ type: 'visualCheck', name: '', fullPage: false }) },
-		],
-	},
-	{
-		category: 'Wait',
-		actions: [
-			{ type: 'wait', label: 'Wait (time or for an element)', make: () => ({ type: 'wait', timeoutMs: 1000 }) },
-			{ type: 'waitForUrl', label: 'Wait for the web address', make: () => ({ type: 'waitForUrl', url: '' }) },
-			{ type: 'waitForLoadState', label: 'Wait for the page to settle', make: () => ({ type: 'waitForLoadState', state: 'networkidle' }) },
-		],
-	},
-	{
-		category: 'Capture & data',
-		actions: [
-			{ type: 'screenshot', label: 'Take a screenshot', make: () => ({ type: 'screenshot', fullPage: false }) },
-			{ type: 'extract', label: 'Save text into a variable', make: () => ({ type: 'extract', name: '', locator: { role: 'heading' } }) },
-			{ type: 'setVar', label: 'Set a variable', make: () => ({ type: 'setVar', name: '', value: '' }) },
-		],
-	},
-	{
-		category: 'AI & code',
-		actions: [
-			{ type: 'aiStep', label: 'Describe it in plain words', make: () => ({ type: 'aiStep', instruction: '' }) },
-			{ type: 'extractJs', label: 'Save a code result', make: () => ({ type: 'extractJs', name: '', code: 'return document.title;' }) },
-			{ type: 'execJs', label: 'Run custom code', make: () => ({ type: 'execJs', code: '' }) },
-			{ type: 'assertJs', label: 'Check with custom code', make: () => ({ type: 'assertJs', code: 'return true;' }) },
-			{ type: 'exit', label: 'Stop the test', make: () => ({ type: 'exit', pass: true }) },
-		],
-	},
-];
-
-const ALL_ACTIONS: ActionDef[] = ACTION_GROUPS.flatMap((g) => g.actions);
 
 const EXAMPLE: Step[] = [
 	{ type: 'goto', url: 'https://example.com' },
@@ -280,13 +209,6 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 	const [savedMsg, setSavedMsg] = createSignal('');
 	const [savingAction, setSavingAction] = createSignal(false);
 	const [actionName, setActionName] = createSignal('');
-	const [actionQuery, setActionQuery] = createSignal('');
-
-	// Filter across every action when searching; empty query shows the grouped palette.
-	const filteredActions = () => {
-		const q = actionQuery().trim().toLowerCase();
-		return q ? ALL_ACTIONS.filter((a) => a.label.toLowerCase().includes(q)) : [];
-	};
 
 	// Reusable actions can be dropped into a test (but not into another action/login, to keep authoring simple).
 	onMount(() => {
@@ -411,7 +333,7 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 					when={steps.length > 0}
 					fallback={
 						<div class={styles['empty']}>
-							No steps yet. Pick an action below to get started — or{' '}
+							No steps yet. Use <strong>Add step</strong> below to begin — or{' '}
 							<button type="button" class={styles['link-inline']} onClick={() => setSteps([...EXAMPLE])}>
 								load an example
 							</button>
@@ -455,70 +377,12 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 						</For>
 					</ol>
 				</Show>
-			</div>
-
-			<div class={styles['section']}>
-				<div class={styles['section-head']}>
-					<span class={styles['section-label']}>Add an action</span>
+				<div class={styles['add-step-wrap']}>
+					<AddStepMenu onPick={addStep} />
 				</div>
-				<div class={styles['palette-search']}>
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<circle cx="11" cy="11" r="8" />
-						<line x1="21" y1="21" x2="16.65" y2="16.65" />
-					</svg>
-					<input value={actionQuery()} onInput={(e) => setActionQuery(e.currentTarget.value)} placeholder="Search actions…" aria-label="Search actions" />
-					<Show when={actionQuery()}>
-						<button type="button" class={styles['search-clear']} title="Clear" onClick={() => setActionQuery('')}>
-							<IconClose size={14} />
-						</button>
-					</Show>
-				</div>
-
-				<Show
-					when={actionQuery().trim()}
-					fallback={
-						<For each={ACTION_GROUPS}>
-							{(g) => (
-								<div class={styles['action-group']}>
-									<span class={styles['group-label']}>{g.category}</span>
-									<div class={styles['palette']}>
-										<For each={g.actions}>
-											{(a) => (
-												<button type="button" onClick={() => addStep(a.make)} class={styles['action-btn']}>
-													<span class={styles['action-icon']}>
-														<ActionIcon type={a.type} size={16} />
-													</span>
-													<span class={styles['action-text']}>{a.label}</span>
-												</button>
-											)}
-										</For>
-									</div>
-								</div>
-							)}
-						</For>
-					}
-				>
-					<Show
-						when={filteredActions().length > 0}
-						fallback={<p class={styles['no-actions']}>No actions match “{actionQuery()}”.</p>}
-					>
-						<div class={styles['palette']}>
-							<For each={filteredActions()}>
-								{(a) => (
-									<button type="button" onClick={() => addStep(a.make)} class={styles['action-btn']}>
-										<span class={styles['action-icon']}>
-											<ActionIcon type={a.type} size={16} />
-										</span>
-										<span class={styles['action-text']}>{a.label}</span>
-									</button>
-								)}
-							</For>
-						</div>
-					</Show>
-				</Show>
 
 				<Show when={actions().length > 0}>
-					<div class={styles['section-head']} style={{ 'margin-top': '0.75rem' }}>
+					<div class={styles['section-head']} style={{ 'margin-top': '1rem' }}>
 						<span class={styles['section-label']}>Your saved actions</span>
 						<a href="/actions" class={styles['text-btn']}>
 							Manage

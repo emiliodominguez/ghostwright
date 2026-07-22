@@ -109,6 +109,10 @@
 	counter-reset: step;
 }
 
+.add-step-wrap {
+	margin-top: space(3);
+}
+
 .step {
 	@include card;
 	padding: space(4);
@@ -216,130 +220,6 @@
 	padding: space(1.5) space(3);
 	font-size: font-size('xs');
 	color: var(--text-muted);
-}
-
-// ── Action palette ──────────────────────────────────────────────────────────
-.palette-search {
-	display: flex;
-	align-items: center;
-	gap: space(2);
-	margin-bottom: space(5);
-	padding: space(2) space(3);
-	border: 1px solid var(--border);
-	border-radius: radius('lg');
-	background-color: var(--field-bg);
-	color: var(--text-faint);
-	transition:
-		border-color $transition-base $ease,
-		box-shadow $transition-base $ease;
-
-	&:focus-within {
-		border-color: var(--accent-border);
-		box-shadow: 0 0 0 3px var(--accent-soft);
-		color: var(--text-subtle);
-	}
-
-	svg {
-		flex-shrink: 0;
-	}
-
-	input {
-		flex: 1;
-		min-width: 0;
-		border: none;
-		background: none;
-		outline: none;
-		color: var(--text);
-		font-size: font-size('base');
-
-		&::placeholder {
-			color: var(--text-faint);
-		}
-	}
-}
-
-.search-clear {
-	@include button-reset;
-	display: inline-flex;
-	color: var(--text-faint);
-	transition: color $transition-base $ease;
-
-	&:hover {
-		color: var(--text-muted);
-	}
-}
-
-.action-group {
-	& + & {
-		margin-top: space(5);
-	}
-}
-
-.group-label {
-	display: block;
-	margin-bottom: space(2.5);
-	font-size: font-size('2xs');
-	font-weight: $weight-medium;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: var(--text-faint);
-}
-
-.no-actions {
-	padding: space(3) 0;
-	font-size: font-size('base');
-	color: var(--text-subtle);
-}
-
-.palette {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: space(2.5);
-
-	@include at('sm') {
-		grid-template-columns: repeat(3, 1fr);
-	}
-}
-
-.action-btn {
-	@include button-reset;
-	@include focusable;
-	display: flex;
-	align-items: center;
-	gap: space(2.5);
-	min-height: 3.25rem;
-	padding: space(3) space(3.5);
-	border: 1px solid var(--border);
-	border-radius: radius('lg');
-	background-color: var(--surface-1);
-	text-align: left;
-	font-size: font-size('xs');
-	color: var(--text-muted);
-	transition:
-		border-color $transition-base $ease,
-		background-color $transition-base $ease,
-		color $transition-base $ease;
-
-	&:hover {
-		border-color: var(--accent-border);
-		background-color: var(--surface-3);
-		color: var(--text);
-
-		.action-icon {
-			color: var(--accent-text);
-		}
-	}
-}
-
-.action-icon {
-	display: inline-flex;
-	flex-shrink: 0;
-	color: var(--text-subtle);
-	transition: color $transition-base $ease;
-}
-
-.action-text {
-	@include line-clamp(2);
 }
 
 // ── Saved actions ───────────────────────────────────────────────────────────
