@@ -7,33 +7,95 @@ import { runStatus, stepStatus } from '../../lib/status';
 const { id } = Astro.params;
 const data = id ? await createCaller().runs.get({ id }) : null;
 if (!data?.run) return Astro.redirect('/');
-const { run, steps, descriptions } = data;
+const { run, steps, descriptions, test } = data;
 const inProgress = run.status === 'queued' || run.status === 'running';
 const traceSrc = run.traceKey ? `/trace-viewer/index.html?trace=${encodeURIComponent('/artifacts/' + run.traceKey)}` : null;
 const triage = run.triage ? (JSON.parse(run.triage) as { summary: string; likelyCause: string; suggestedFix: string }) : null;
 const status = runStatus(run.status);
+
+const started = run.startedAt ?? run.createdAt;
+const totalMs = run.startedAt && run.finishedAt ? run.finishedAt.getTime() - run.startedAt.getTime() : null;
+const sumStepMs = steps.reduce((n, s) => n + (s.durationMs ?? 0), 0);
+const maxStepMs = Math.max(1, ...steps.map((s) => s.durationMs ?? 0));
+const passed = steps.filter((s) => s.status === 'passed').length;
+const failed = steps.filter((s) => s.status === 'failed').length;
+const skipped = steps.filter((s) => s.status === 'skipped').length;
+
+/** Compact duration string: 450ms · 2.0s · 1m 3s. */
+function fmtDur(ms: number | null): string {
+	if (ms == null) return '—';
+	if (ms < 1000) return `${ms}ms`;
+	const s = ms / 1000;
+	if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+	const m = Math.floor(s / 60);
+	return `${m}m ${Math.round(s % 60)}s`;
+}
+
+const stats: { label: string; value: string }[] = [
+	{ label: 'Duration', value: fmtDur(totalMs ?? sumStepMs) },
+	{ label: 'Steps passed', value: `${passed} / ${steps.length}` },
+	{ label: 'Browser', value: run.browser },
+	{ label: 'Viewport', value: run.viewport },
+	{ label: 'Started', value: new Date(started).toLocaleString() },
+];
+
+const artifacts: { label: string; href: string; newTab?: boolean }[] = [];
+if (traceSrc) artifacts.push({ label: 'Open trace viewer', href: traceSrc, newTab: true });
+if (run.videoKey) artifacts.push({ label: 'Download video', href: `/artifacts/${run.videoKey}`, newTab: true });
+if (run.harKey) artifacts.push({ label: 'Download HAR', href: `/artifacts/${run.harKey}`, newTab: true });
+if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/artifacts/${run.screenshotKey}`, newTab: true });
 ---
 
-<Layout title={`Run ${run.id.slice(0, 8)}`}>
+<Layout title={test ? `${test.name} — result` : `Run ${run.id.slice(0, 8)}`} wide>
 	<header class="page-head">
-		<a href="/" class="back">
+		<a href={test ? `/tests/${test.id}` : '/'} class="back">
 			<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 				<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
 			</svg>
-			home
+			{test ? test.name : 'home'}
 		</a>
-		<h1 class="result-label">Test result</h1>
-		<span class="badge" data-tone={status.tone}>{status.label}</span>
+		<div class="head-row">
+			<h1>Test result</h1>
+			<span class="badge" data-tone={status.tone}>
+				{inProgress && <span class="dot" data-tone="running"></span>}
+				{status.label}
+			</span>
+		</div>
+		<p class="run-id">Run {run.id.slice(0, 8)}</p>
 	</header>
 
 	{
 		inProgress && (
 			<p class="running-note">
 				<span class="dot" data-tone="running"></span>
-				Running your test — this page updates itself…
+				Running your test — this page refreshes itself as steps complete…
 			</p>
 		)
 	}
+
+	<section class="stats" aria-label="Run summary">
+		{
+			stats.map((s) => (
+				<div class="stat">
+					<span class="stat-label">{s.label}</span>
+					<span class="stat-value">{s.value}</span>
+				</div>
+			))
+		}
+	</section>
+
+	{
+		steps.length > 0 && (
+			<div class="timeline" role="img" aria-label={`${passed} passed, ${failed} failed, ${skipped} skipped`}>
+				{steps.map((s) => {
+					const st = stepStatus(s.status);
+					const pct = Math.max(2, ((s.durationMs ?? 0) / maxStepMs) * 100);
+					return <span class="seg" data-tone={st.tone} style={`flex: ${pct}`} title={`Step ${s.idx + 1}: ${st.label} (${fmtDur(s.durationMs ?? null)})`} />;
+				})}
+			</div>
+		)
+	}
+
 	{run.error && <pre class="error-block">{run.error}</pre>}
 
 	{
@@ -61,21 +123,29 @@ const status = runStatus(run.status);
 	}
 
 	<section class="block">
-		<h2 class="section-title">Steps</h2>
+		<h2 class="section-title">Steps <span class="muted-count">{steps.length}</span></h2>
 		<ul class="steps">
 			{
 				steps.map((s) => {
 					const st = stepStatus(s.status);
+					const barPct = Math.max(1, ((s.durationMs ?? 0) / maxStepMs) * 100);
 					return (
-						<li class="step">
+						<li class="step" data-tone={st.tone}>
 							<div class="step-head">
-								<span class="step-num">{s.idx + 1}</span>
+								<span class="step-num" data-tone={st.tone}>
+									{s.idx + 1}
+								</span>
 								<span class="step-desc">{descriptions[s.idx] ?? s.type}</span>
 								<span class="step-status" data-tone={st.tone}>
 									{st.label}
 								</span>
-								{s.durationMs != null && <span class="step-dur">{s.durationMs}ms</span>}
+								{s.durationMs != null && <span class="step-dur">{fmtDur(s.durationMs)}</span>}
 							</div>
+							{s.durationMs != null && (
+								<div class="step-bar" aria-hidden="true">
+									<span class="step-bar-fill" data-tone={st.tone} style={`width: ${barPct}%`} />
+								</div>
+							)}
 							{s.error && <p class="step-error">{s.error}</p>}
 							{s.baselineKey ? (
 								<div class="diff">
@@ -86,16 +156,24 @@ const status = runStatus(run.status);
 									<div class="diff-grid">
 										<figure>
 											<figcaption>baseline</figcaption>
-											<img src={`/artifacts/${s.baselineKey}`} alt="baseline" loading="lazy" />
+											<a href={`/artifacts/${s.baselineKey}`} target="_blank" rel="noopener">
+												<img src={`/artifacts/${s.baselineKey}`} alt="baseline" loading="lazy" />
+											</a>
 										</figure>
 										<figure>
 											<figcaption>actual</figcaption>
-											{s.screenshotKey && <img src={`/artifacts/${s.screenshotKey}`} alt="actual" loading="lazy" />}
+											{s.screenshotKey && (
+												<a href={`/artifacts/${s.screenshotKey}`} target="_blank" rel="noopener">
+													<img src={`/artifacts/${s.screenshotKey}`} alt="actual" loading="lazy" />
+												</a>
+											)}
 										</figure>
 										<figure>
 											<figcaption>diff</figcaption>
 											{s.diffKey ? (
-												<img src={`/artifacts/${s.diffKey}`} alt="diff" class="diff-img" loading="lazy" />
+												<a href={`/artifacts/${s.diffKey}`} target="_blank" rel="noopener">
+													<img src={`/artifacts/${s.diffKey}`} alt="diff" class="diff-img" loading="lazy" />
+												</a>
 											) : (
 												<div class="no-diff">no diff</div>
 											)}
@@ -103,7 +181,12 @@ const status = runStatus(run.status);
 									</div>
 								</div>
 							) : (
-								s.screenshotKey && <img src={`/artifacts/${s.screenshotKey}`} alt={`step ${s.idx}`} class="shot" loading="lazy" />
+								s.screenshotKey && (
+									<a href={`/artifacts/${s.screenshotKey}`} target="_blank" rel="noopener" class="shot-link">
+										<img src={`/artifacts/${s.screenshotKey}`} alt={`step ${s.idx + 1}`} class="shot" loading="lazy" />
+										<span class="shot-hint">Open full size</span>
+									</a>
+								)
 							)}
 						</li>
 					);
@@ -113,9 +196,40 @@ const status = runStatus(run.status);
 	</section>
 
 	{
+		artifacts.length > 0 && (
+			<section class="block">
+				<h2 class="section-title">Artifacts</h2>
+				<div class="artifacts">
+					{artifacts.map((a) => (
+						<a class="artifact" href={a.href} target={a.newTab ? '_blank' : undefined} rel="noopener">
+							<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+								<polyline points="15 3 21 3 21 9" />
+								<line x1="10" y1="14" x2="21" y2="3" />
+							</svg>
+							{a.label}
+						</a>
+					))}
+				</div>
+			</section>
+		)
+	}
+
+	{
 		traceSrc && (
 			<section class="block">
-				<h2 class="section-title">Trace</h2>
+				<div class="trace-head">
+					<h2 class="section-title">Trace</h2>
+					<a class="trace-open" href={traceSrc} target="_blank" rel="noopener">
+						Open full screen
+						<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+							<polyline points="15 3 21 3 21 9" />
+							<line x1="10" y1="14" x2="21" y2="3" />
+						</svg>
+					</a>
+				</div>
+				<p class="trace-hint">A full step-by-step recording — click any action to see the DOM snapshot, network calls and console at that moment.</p>
 				<iframe src={traceSrc} class="trace" title="Playwright trace" />
 			</section>
 		)
@@ -128,9 +242,6 @@ const status = runStatus(run.status);
 	@use '../../styles/abstracts' as *;
 
 	.page-head {
-		display: flex;
-		align-items: center;
-		gap: space(3);
 		margin-bottom: space(6);
 	}
 
@@ -138,6 +249,7 @@ const status = runStatus(run.status);
 		display: inline-flex;
 		align-items: center;
 		gap: space(1);
+		max-width: 100%;
 		font-size: font-size('xs');
 		color: var(--text-subtle);
 		transition: color $transition-base $ease;
@@ -147,19 +259,101 @@ const status = runStatus(run.status);
 		}
 	}
 
-	.result-label {
-		font-size: font-size('sm');
-		font-weight: $weight-medium;
-		color: var(--text-subtle);
+	.head-row {
+		display: flex;
+		align-items: center;
+		gap: space(3);
+		flex-wrap: wrap;
+		margin-top: space(2);
+
+		h1 {
+			font-size: font-size('2xl');
+			font-weight: $weight-semibold;
+			letter-spacing: -0.01em;
+		}
+	}
+
+	.run-id {
+		margin-top: space(1);
+		font-size: font-size('xs');
+		color: var(--text-faint);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.running-note {
 		display: flex;
 		align-items: center;
 		gap: space(2);
-		margin-bottom: space(6);
+		margin-bottom: space(5);
 		font-size: font-size('base');
 		color: var(--running-text);
+	}
+
+	// ── Summary stats ───────────────────────────────────────────────────────
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: space(2);
+		margin-bottom: space(4);
+
+		@include at('sm') {
+			grid-template-columns: repeat(3, 1fr);
+		}
+		@include at('lg') {
+			grid-template-columns: repeat(5, 1fr);
+		}
+	}
+
+	.stat {
+		@include card;
+		display: flex;
+		flex-direction: column;
+		gap: space(1);
+		padding: space(3) space(3.5);
+	}
+
+	.stat-label {
+		font-size: font-size('2xs');
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-faint);
+	}
+
+	.stat-value {
+		font-size: font-size('md');
+		font-weight: $weight-medium;
+		font-variant-numeric: tabular-nums;
+		overflow-wrap: anywhere;
+	}
+
+	// ── Step timeline bar ───────────────────────────────────────────────────
+	.timeline {
+		display: flex;
+		gap: 2px;
+		height: 8px;
+		margin-bottom: space(8);
+		border-radius: radius('full');
+		overflow: hidden;
+	}
+
+	.seg {
+		min-width: 3px;
+
+		&[data-tone='success'] {
+			background-color: var(--success);
+		}
+		&[data-tone='danger'] {
+			background-color: var(--danger);
+		}
+		&[data-tone='warning'] {
+			background-color: var(--warning);
+		}
+		&[data-tone='running'] {
+			background-color: var(--running);
+		}
+		&[data-tone='neutral'] {
+			background-color: var(--border-strong);
+		}
 	}
 
 	.error-block {
@@ -175,6 +369,7 @@ const status = runStatus(run.status);
 		@include thin-scrollbar;
 	}
 
+	// ── AI triage ───────────────────────────────────────────────────────────
 	.triage {
 		margin-bottom: space(6);
 		padding: space(4);
@@ -222,6 +417,7 @@ const status = runStatus(run.status);
 		}
 	}
 
+	// ── Sections ────────────────────────────────────────────────────────────
 	.block {
 		margin-bottom: space(8);
 
@@ -231,12 +427,21 @@ const status = runStatus(run.status);
 	}
 
 	.section-title {
-		margin-bottom: space(3);
+		display: flex;
+		align-items: center;
+		gap: space(2);
+		margin-bottom: space(4);
 		font-size: font-size('sm');
 		font-weight: $weight-semibold;
 		color: var(--text-subtle);
 	}
 
+	.muted-count {
+		font-weight: $weight-normal;
+		color: var(--text-faint);
+	}
+
+	// ── Steps ───────────────────────────────────────────────────────────────
 	.steps {
 		display: flex;
 		flex-direction: column;
@@ -248,13 +453,28 @@ const status = runStatus(run.status);
 
 	.step {
 		@include card;
-		padding: space(3);
+		padding: space(4);
+		border-left: 3px solid var(--border);
+
+		&[data-tone='success'] {
+			border-left-color: var(--success);
+		}
+		&[data-tone='danger'] {
+			border-left-color: var(--danger);
+		}
+		&[data-tone='warning'] {
+			border-left-color: var(--warning);
+		}
+		&[data-tone='neutral'] {
+			border-left-color: var(--border-strong);
+		}
 	}
 
 	.step-head {
 		display: flex;
 		align-items: center;
 		gap: space(3);
+		flex-wrap: wrap;
 	}
 
 	.step-num {
@@ -270,10 +490,20 @@ const status = runStatus(run.status);
 		font-size: font-size('xs');
 		font-weight: $weight-medium;
 		font-variant-numeric: tabular-nums;
+
+		&[data-tone='success'] {
+			background-color: var(--success-soft);
+			color: var(--success-text);
+		}
+		&[data-tone='danger'] {
+			background-color: var(--danger-soft);
+			color: var(--danger-text);
+		}
 	}
 
 	.step-desc {
 		flex: 1;
+		min-width: 12rem;
 		font-size: font-size('base');
 		color: var(--text);
 	}
@@ -292,9 +522,6 @@ const status = runStatus(run.status);
 		&[data-tone='warning'] {
 			color: var(--warning-text);
 		}
-		&[data-tone='running'] {
-			color: var(--running-text);
-		}
 		&[data-tone='neutral'] {
 			color: var(--text-subtle);
 		}
@@ -307,20 +534,79 @@ const status = runStatus(run.status);
 		font-variant-numeric: tabular-nums;
 	}
 
+	.step-bar {
+		height: 3px;
+		margin-top: space(2.5);
+		border-radius: radius('full');
+		background-color: var(--surface-3);
+		overflow: hidden;
+	}
+
+	.step-bar-fill {
+		display: block;
+		height: 100%;
+		border-radius: radius('full');
+		background-color: var(--border-strong);
+
+		&[data-tone='success'] {
+			background-color: var(--success);
+		}
+		&[data-tone='danger'] {
+			background-color: var(--danger);
+		}
+		&[data-tone='warning'] {
+			background-color: var(--warning);
+		}
+	}
+
 	.step-error {
-		margin-top: space(2);
+		margin-top: space(3);
+		padding: space(2) space(3);
+		border-radius: radius('md');
+		background-color: var(--danger-soft);
 		font-family: var(--font-mono);
 		font-size: font-size('xs');
 		color: var(--danger-text);
+		overflow-x: auto;
+		@include thin-scrollbar;
 	}
 
+	// ── Screenshots ─────────────────────────────────────────────────────────
+	.shot-link {
+		display: inline-flex;
+		flex-direction: column;
+		gap: space(1);
+		margin-top: space(3);
+		width: fit-content;
+		max-width: 100%;
+	}
+
+	.shot {
+		max-height: 15rem;
+		max-width: 100%;
+		border: 1px solid var(--border);
+		border-radius: radius('md');
+		transition: border-color $transition-base $ease;
+	}
+
+	.shot-link:hover .shot {
+		border-color: var(--accent-border);
+	}
+
+	.shot-hint {
+		font-size: font-size('2xs');
+		color: var(--text-faint);
+	}
+
+	// ── Visual diff ─────────────────────────────────────────────────────────
 	.diff {
-		margin-top: space(2);
+		margin-top: space(3);
 	}
 
 	.diff-meta {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: space(3);
 		margin-bottom: space(2);
 		font-size: font-size('xs');
@@ -329,8 +615,12 @@ const status = runStatus(run.status);
 
 	.diff-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: 1fr;
 		gap: space(2);
+
+		@include at('sm') {
+			grid-template-columns: repeat(3, 1fr);
+		}
 	}
 
 	figure {
@@ -367,16 +657,77 @@ const status = runStatus(run.status);
 		color: var(--text-faint);
 	}
 
-	.shot {
-		margin-top: space(2);
-		max-height: 12rem;
+	// ── Artifacts ───────────────────────────────────────────────────────────
+	.artifacts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: space(2);
+	}
+
+	.artifact {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		padding: space(2) space(3.5);
 		border: 1px solid var(--border);
-		border-radius: radius('md');
+		border-radius: radius('lg');
+		background-color: var(--surface-1);
+		font-size: font-size('xs');
+		color: var(--text-muted);
+		transition:
+			border-color $transition-base $ease,
+			color $transition-base $ease,
+			background-color $transition-base $ease;
+
+		svg {
+			color: var(--text-faint);
+		}
+
+		&:hover {
+			border-color: var(--accent-border);
+			background-color: var(--surface-3);
+			color: var(--text);
+
+			svg {
+				color: var(--accent-text);
+			}
+		}
+	}
+
+	// ── Trace ───────────────────────────────────────────────────────────────
+	.trace-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: space(3);
+		flex-wrap: wrap;
+	}
+
+	.trace-open {
+		display: inline-flex;
+		align-items: center;
+		gap: space(1.5);
+		margin-bottom: space(4);
+		font-size: font-size('xs');
+		color: var(--accent-text);
+		transition: opacity $transition-base $ease;
+
+		&:hover {
+			opacity: 0.8;
+		}
+	}
+
+	.trace-hint {
+		margin-top: space(-2);
+		margin-bottom: space(3);
+		font-size: font-size('xs');
+		color: var(--text-subtle);
 	}
 
 	.trace {
 		width: 100%;
-		height: 600px;
+		height: min(72vh, 760px);
+		min-height: 460px;
 		border: 1px solid var(--border);
 		border-radius: radius('lg');
 		background-color: #fff;

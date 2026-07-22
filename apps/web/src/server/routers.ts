@@ -168,7 +168,8 @@ export const appRouter = router({
 			// Plain-language description per step index, from the test version's DSL (actions expanded).
 			const version = await db.query.testVersion.findFirst({ where: eq(tables.testVersion.id, run.testVersionId) });
 			const descriptions = version ? await describeExpanded(version.dsl) : [];
-			return { run, steps, descriptions };
+			const test = version ? await db.query.test.findFirst({ where: eq(tables.test.id, version.testId) }) : null;
+			return { run, steps, descriptions, test };
 		}),
 
 		listByTest: publicProcedure.input(z.object({ testId: z.string() })).query(async ({ input }) => {
