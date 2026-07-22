@@ -1,0 +1,59 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Not found">
+	<div class="notfound">
+		<svg viewBox="0 0 32 32" width="56" height="56" aria-hidden="true">
+			<path
+				fill="var(--accent)"
+				d="M16 3C10.477 3 6 7.477 6 13v13.9c0 .89 1.04 1.37 1.71.79L10 25.8l2.29 2a1.06 1.06 0 0 0 1.42 0L16 25.8l2.29 2a1.06 1.06 0 0 0 1.42 0L22 25.8l2.29 1.89c.67.58 1.71.1 1.71-.79V13c0-5.523-4.477-10-10-10z"
+			></path>
+			<circle cx="12.6" cy="13.4" r="1.55" fill="var(--bg)"></circle>
+			<circle cx="19.4" cy="13.4" r="1.55" fill="var(--bg)"></circle>
+		</svg>
+		<h1>This page vanished</h1>
+		<p>The page you’re looking for doesn’t exist — or it slipped away like a good ghost.</p>
+		<a href="/" class="home-link">
+			<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+			</svg>
+			Back to your tests
+		</a>
+	</div>
+</Layout>
+
+<style lang="scss">
+	@use '../styles/abstracts' as *;
+
+	.notfound {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: space(2);
+		padding: space(16) space(6);
+		text-align: center;
+	}
+
+	svg {
+		margin-bottom: space(2);
+		opacity: 0.9;
+	}
+
+	h1 {
+		font-size: font-size('2xl');
+		font-weight: $weight-semibold;
+		letter-spacing: -0.01em;
+	}
+
+	p {
+		max-width: 28rem;
+		color: var(--text-subtle);
+		font-size: font-size('base');
+	}
+
+	.home-link {
+		@include button-secondary;
+		margin-top: space(4);
+	}
+</style>
