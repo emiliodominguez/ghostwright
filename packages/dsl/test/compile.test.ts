@@ -17,6 +17,7 @@ function fakeLocator(tag: string, calls: string[]): StepLocator {
 		dragTo: vi.fn(async () => void calls.push(`${tag}.dragTo`)),
 		scrollIntoViewIfNeeded: vi.fn(async () => void calls.push(`${tag}.scrollIntoView`)),
 		setInputFiles: vi.fn(async (f) => void calls.push(`${tag}.setInputFiles(${String(f)})`)),
+		count: vi.fn(async () => 1),
 	};
 }
 
@@ -262,6 +263,29 @@ describe('compile — extract, assertions, interactions (T3/T4)', () => {
 		await runStep({ type: 'back' }, page, fakeCtx(calls));
 		await runStep({ type: 'refresh' }, page, fakeCtx(calls));
 		expect(calls).toEqual(expect.arrayContaining(['goBack', 'reload']));
+	});
+});
+
+describe('healLocator — self-healing selectors', () => {
+	it('falls back to css when the role+name strategy has no match', async () => {
+		const calls: string[] = [];
+		// role locator matches 0 elements; css locator matches 1 → healing picks css.
+		const roleLoc = { ...fakeLocator('role', calls), count: async () => 0 };
+		const cssLoc = { ...fakeLocator('css', calls), count: async () => 1 };
+		const page = {
+			...fakePage(calls),
+			getByRole: () => roleLoc as never,
+			locator: () => cssLoc as never,
+		};
+		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', css: '#save' } }, page, fakeCtx(calls));
+		expect(calls).toContain('css.click');
+		expect(calls).not.toContain('role.click');
+	});
+
+	it('uses the primary when it matches', async () => {
+		const calls: string[] = [];
+		await runStep({ type: 'click', locator: { role: 'button', name: 'Save', css: '#save' } }, fakePage(calls), fakeCtx(calls));
+		expect(calls).toContain('role.click');
 	});
 });
 

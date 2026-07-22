@@ -19,6 +19,7 @@ export interface StepLocator {
 	dragTo(target: StepLocator): Promise<void>;
 	scrollIntoViewIfNeeded(): Promise<void>;
 	setInputFiles(files: string | string[]): Promise<void>;
+	count(): Promise<number>;
 }
 
 export interface StepPage {

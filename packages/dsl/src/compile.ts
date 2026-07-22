@@ -53,6 +53,37 @@ export function resolveLocator(page: StepPage, loc: Locator): StepLocator {
 	return page.locator(`aria-ref=${loc.ref}`);
 }
 
+/** Every locator strategy present, in durability order (role+name → css → ref). */
+function candidates(page: StepPage, loc: Locator): StepLocator[] {
+	const out: StepLocator[] = [];
+	if (loc.role) out.push(page.getByRole(loc.role, loc.name !== undefined ? { name: loc.name } : undefined));
+	if (loc.css) out.push(page.locator(loc.css));
+	if (loc.ref) out.push(page.locator(`aria-ref=${loc.ref}`));
+	return out;
+}
+
+/**
+ * Self-healing locator resolution for actions: when a locator carries more than one
+ * strategy, pick the first that currently matches an element (a backup-selector probe,
+ * like GI's backup selectors). Falls back to the durable primary so it still auto-waits.
+ *
+ * @param page - the page to resolve against.
+ * @param loc - the DSL locator.
+ * @returns the healed Playwright locator.
+ */
+export async function healLocator(page: StepPage, loc: Locator): Promise<StepLocator> {
+	const list = candidates(page, loc);
+	if (list.length <= 1) return list[0] ?? resolveLocator(page, loc);
+	for (const c of list) {
+		try {
+			if ((await c.count()) > 0) return c;
+		} catch {
+			// a malformed strategy shouldn't kill the step — try the next one
+		}
+	}
+	return list[0]!;
+}
+
 /**
  * Compile a single DSL step into an executable runner. The runner is engine-agnostic:
  * it calls the structural `StepPage`/`StepLocator`/`expect` passed at run time, so the
@@ -78,13 +109,13 @@ function buildRunner(step: Step): CompiledStep {
 			return {
 				type: step.type,
 				run: async (page, ctx) => {
-					const l = resolveLocator(page, interpLoc(step.locator, ctx));
+					const l = await healLocator(page, interpLoc(step.locator, ctx));
 					if (step.double) await l.dblclick();
 					else await l.click(step.button ? { button: step.button } : undefined);
 				},
 			};
 		case 'fill':
-			return { type: step.type, run: async (page, ctx) => resolveLocator(page, interpLoc(step.locator, ctx)).fill(iv(step.value, ctx)) };
+			return { type: step.type, run: async (page, ctx) => (await healLocator(page, interpLoc(step.locator, ctx))).fill(iv(step.value, ctx)) };
 		case 'press':
 			return {
 				type: step.type,
@@ -92,11 +123,11 @@ function buildRunner(step: Step): CompiledStep {
 					step.locator ? resolveLocator(page, interpLoc(step.locator, ctx)).press(step.key) : page.keyboard.press(step.key),
 			};
 		case 'hover':
-			return { type: step.type, run: async (page, ctx) => resolveLocator(page, interpLoc(step.locator, ctx)).hover() };
+			return { type: step.type, run: async (page, ctx) => (await healLocator(page, interpLoc(step.locator, ctx))).hover() };
 		case 'select':
 			return {
 				type: step.type,
-				run: async (page, ctx) => void (await resolveLocator(page, interpLoc(step.locator, ctx)).selectOption(step.values.map((v) => iv(v, ctx)))),
+				run: async (page, ctx) => void (await (await healLocator(page, interpLoc(step.locator, ctx))).selectOption(step.values.map((v) => iv(v, ctx)))),
 			};
 		case 'wait':
 			return {
@@ -141,7 +172,7 @@ function buildRunner(step: Step): CompiledStep {
 		case 'dragAndDrop':
 			return {
 				type: step.type,
-				run: async (page, ctx) => resolveLocator(page, interpLoc(step.from, ctx)).dragTo(resolveLocator(page, interpLoc(step.to, ctx))),
+				run: async (page, ctx) => (await healLocator(page, interpLoc(step.from, ctx))).dragTo(await healLocator(page, interpLoc(step.to, ctx))),
 			};
 		case 'scroll':
 			return {
@@ -161,14 +192,14 @@ function buildRunner(step: Step): CompiledStep {
 				run: async (page, ctx) => {
 					const refs = step.files.map((f) => iv(f, ctx));
 					const paths = ctx.resolveFile ? await Promise.all(refs.map((r) => ctx.resolveFile!(r))) : refs;
-					await resolveLocator(page, interpLoc(step.locator, ctx)).setInputFiles(paths);
+					await (await healLocator(page, interpLoc(step.locator, ctx))).setInputFiles(paths);
 				},
 			};
 		case 'extract':
 			return {
 				type: step.type,
 				run: async (page, ctx) => {
-					const text = await resolveLocator(page, interpLoc(step.locator, ctx)).textContent();
+					const text = await (await healLocator(page, interpLoc(step.locator, ctx))).textContent();
 					(ctx.vars ??= {})[step.name] = text ?? '';
 				},
 			};
@@ -247,7 +278,7 @@ function buildRunner(step: Step): CompiledStep {
 				run: async (page, ctx) => {
 					if (!ctx.totp) throw new Error('totp requires a secret resolver (worker only)');
 					const code = await ctx.totp(step.secret);
-					await resolveLocator(page, interpLoc(step.locator, ctx)).fill(code);
+					await (await healLocator(page, interpLoc(step.locator, ctx))).fill(code);
 				},
 			};
 		case 'execJs':
