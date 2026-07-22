@@ -64,6 +64,9 @@
 
 .accent-btn {
 	@include button-reset;
+	display: inline-flex;
+	align-items: center;
+	gap: space(1.5);
 	font-size: font-size('xs');
 	color: var(--accent-text);
 	transition: opacity $transition-base $ease;
