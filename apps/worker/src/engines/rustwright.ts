@@ -6,13 +6,15 @@ import { chromium, type Browser as RwBrowser, type Page as RwNativePage } from '
  * Playwright-shaped Node binding). It is opt-in and Chromium-only.
  *
  * rustwright's Node binding is selector-string based and small: goto, click,
- * fill, textContent, evaluate, screenshot. It has no locator objects, no
- * accessible-name/role targeting, no browser contexts, and therefore no
- * tracing, video, HAR, storageState, or multi-browser support. This adapter
- * maps the part of the DSL contract that fits (CSS-expressible targets plus
- * custom-code steps) and throws a clear error for anything that needs the
- * Playwright engine, so an unsupported test fails fast with a useful message
- * instead of behaving oddly.
+ * fill, textContent, evaluate, screenshot. Its selector engine resolves CSS,
+ * XPath and Playwright's `text=` engine, so this adapter supports targeting by
+ * CSS, XPath, visible text, field label (via XPath), test id, placeholder, alt
+ * text and title, plus custom-code steps. It has no locator objects, no role=
+ * engine, no browser contexts, and therefore no tracing, video, HAR,
+ * storageState, or multi-browser support. Anything that needs the Playwright
+ * engine (role/accessible-name targeting, hover/press/select/drag/upload, the
+ * AI step, and the engine-level features above) throws a clear error, so an
+ * unsupported test fails fast with a useful message instead of behaving oddly.
  */
 
 /** Thrown when a step needs a Playwright-only capability the rustwright engine lacks. */
@@ -46,6 +48,52 @@ function evalExpr(page: RwNativePage, expression: string): Promise<unknown> {
 function attr(name: string, value: string, exact?: boolean): string {
 	const v = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 	return `[${name}${exact ? '' : '*'}="${v}"]`;
+}
+
+/** Whether a selector is an XPath (rustwright accepts both bare `//...` and `xpath=...`). */
+function isXpath(selector: string): boolean {
+	return selector.startsWith('xpath=') || selector.startsWith('//') || selector.startsWith('(//');
+}
+
+/** The bare XPath body without the `xpath=` prefix. */
+function xpathBody(selector: string): string {
+	return selector.startsWith('xpath=') ? selector.slice(6) : selector;
+}
+
+/** JS expression resolving the first element for a selector (CSS or XPath), or null. */
+function resolveExpr(selector: string): string {
+	if (isXpath(selector)) return `document.evaluate(${sel(xpathBody(selector))}, document, null, 9, null).singleNodeValue`;
+	return `document.querySelector(${sel(selector)})`;
+}
+
+/** JS expression counting elements matching a selector (CSS or XPath). */
+function countExpr(selector: string): string {
+	if (isXpath(selector)) return `document.evaluate(${sel(xpathBody(selector))}, document, null, 7, null).snapshotLength`;
+	return `document.querySelectorAll(${sel(selector)}).length`;
+}
+
+/** Quote a string as an XPath literal, using concat() when it contains a double quote. */
+function xpathLiteral(s: string): string {
+	if (!s.includes('"')) return `"${s}"`;
+	return `concat(${s.split('"').map((p) => `"${p}"`).join(`, '"', `)})`;
+}
+
+/** XPath for the innermost element whose text contains (or exactly equals) the given string. */
+function textXpath(text: string, exact?: boolean): string {
+	const lit = xpathLiteral(text);
+	const cond = exact ? `normalize-space(.)=${lit}` : `contains(normalize-space(.), ${lit})`;
+	return `xpath=//*[${cond} and not(.//*[${cond}])]`;
+}
+
+/** XPath for a control associated with a label (label[for], a wrapping label, or aria-label). */
+function labelXpath(text: string, exact?: boolean): string {
+	const lit = xpathLiteral(text);
+	const m = exact ? `normalize-space(.)=${lit}` : `contains(normalize-space(.), ${lit})`;
+	const aria = exact ? `@aria-label=${lit}` : `contains(@aria-label, ${lit})`;
+	const controls = ['input', 'textarea', 'select'];
+	const byFor = controls.map((c) => `//${c}[@id=//label[${m}]/@for]`);
+	const wrapping = controls.map((c) => `//label[${m}]//${c}`);
+	return `xpath=${[...byFor, ...wrapping, `//*[${aria}]`].join(' | ')}`;
 }
 
 /**
@@ -89,7 +137,7 @@ class RwLocator implements StepLocator {
 	}
 	async count(): Promise<number> {
 		this.ensure();
-		return Number(await evalExpr(this.page, `document.querySelectorAll(${sel(this.selector)}).length`));
+		return Number(await evalExpr(this.page, countExpr(this.selector)));
 	}
 	/** Visibility of the first matching element, for retrying assertions. */
 	async visibilityState(): Promise<'missing' | 'hidden' | 'visible'> {
@@ -138,9 +186,9 @@ class RwLocator implements StepLocator {
 	}
 }
 
-/** Report the visibility of the first element matching a selector. */
+/** Report the visibility of the first element matching a selector (CSS or XPath). */
 async function visibility(page: RwNativePage, selector: string): Promise<'missing' | 'hidden' | 'visible'> {
-	const expr = `(() => { const el = document.querySelector(${sel(selector)}); if (!el) return 'missing'; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 0 && r.height > 0) ? 'visible' : 'hidden'; })()`;
+	const expr = `(() => { const el = ${resolveExpr(selector)}; if (!el) return 'missing'; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 0 && r.height > 0) ? 'visible' : 'hidden'; })()`;
 	return (await evalExpr(page, expr)) as 'missing' | 'hidden' | 'visible';
 }
 
@@ -158,7 +206,7 @@ class RwPage implements StepPage {
 	private unsupported(feature: string): StepLocator {
 		return new RwLocator(this.page, '', feature);
 	}
-	private css(selector: string): StepLocator {
+	private at(selector: string): StepLocator {
 		return new RwLocator(this.page, selector);
 	}
 
@@ -175,31 +223,32 @@ class RwPage implements StepPage {
 	}
 
 	getByRole(role: string, opts?: { name?: string }): StepLocator {
-		// CSS cannot express accessible names or implicit ARIA roles reliably.
+		// rustwright's selector engine has no role= support and CSS cannot express implicit
+		// ARIA roles or accessible names.
 		return this.unsupported(opts?.name ? `finding the "${opts.name}" ${role} by role` : `finding elements by the ${role} role`);
 	}
-	getByText(): StepLocator {
-		return this.unsupported('finding elements by visible text');
+	getByText(text: string, opts?: { exact?: boolean }): StepLocator {
+		return this.at(textXpath(text, opts?.exact));
 	}
-	getByLabel(): StepLocator {
-		return this.unsupported('finding fields by their label');
+	getByLabel(text: string, opts?: { exact?: boolean }): StepLocator {
+		return this.at(labelXpath(text, opts?.exact));
 	}
 	getByPlaceholder(text: string, opts?: { exact?: boolean }): StepLocator {
-		return this.css(attr('placeholder', text, opts?.exact));
+		return this.at(attr('placeholder', text, opts?.exact));
 	}
 	getByTestId(testId: string): StepLocator {
-		return this.css(attr('data-testid', testId, true));
+		return this.at(attr('data-testid', testId, true));
 	}
 	getByAltText(text: string, opts?: { exact?: boolean }): StepLocator {
-		return this.css(attr('alt', text, opts?.exact));
+		return this.at(attr('alt', text, opts?.exact));
 	}
 	getByTitle(text: string, opts?: { exact?: boolean }): StepLocator {
-		return this.css(attr('title', text, opts?.exact));
+		return this.at(attr('title', text, opts?.exact));
 	}
 	locator(selector: string): StepLocator {
-		if (selector.startsWith('xpath=')) return this.unsupported('XPath selectors');
 		if (selector.startsWith('aria-ref=')) return this.unsupported('aria-ref selectors (used by the AI step and self-healing)');
-		return this.css(selector);
+		// Both CSS and `xpath=...` resolve natively.
+		return this.at(selector);
 	}
 
 	async waitForTimeout(ms: number): Promise<void> {

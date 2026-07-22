@@ -48,18 +48,31 @@ These are limits of rustwright's Node binding, not of the adapter. They cannot b
 
 ## 3. Element targeting gaps
 
-rustwright is CSS-selector based. The DSL's richer targeting does not map.
+rustwright's selector engine resolves CSS, XPath, and Playwright's `text=` engine. The adapter
+uses that, so more of the DSL's targeting maps than a pure-CSS engine would allow.
 
-- Unsupported, throws a clear error: targeting by role, accessible name, visible text, or
-  field label; XPath selectors; `aria-ref` selectors; and the which-one (nth) selector.
-- Supported: `css`, plus `testId`, `placeholder`, `altText`, and `title`, which convert to CSS
-  attribute selectors.
-- Self-healing / backup selectors only work when every selector involved is CSS-expressible.
-  If the primary or a fallback uses an unsupported strategy, it throws before healing can run.
+- Supported: `css`, `xpath`, visible `text`, field `label`, `testId`, `placeholder`,
+  `altText`, and `title`. Text and label are resolved through XPath (rustwright's engine
+  supports XPath), so they work for both actions and assertions.
+- Unsupported, throws a clear error: targeting by role or accessible name (rustwright has no
+  `role=` engine, and accessible names cannot be expressed in CSS or XPath reliably),
+  `aria-ref` selectors, and the which-one (nth) selector.
+- Self-healing / backup selectors work when every selector involved is one of the supported
+  strategies. If the primary or a fallback targets by role, it throws before healing can run.
 
-Practical impact: the default no-code authoring model leans on role and text targeting, so
-most tests built in the dashboard will not run on rustwright without being rewritten to use
-CSS selectors.
+Two matching caveats, since text and label go through XPath rather than Playwright's real
+engines:
+
+- Non-exact text matches any element whose normalized text contains the string, and picks the
+  first such innermost element in document order. Ambiguous text (for example "Login" on a page
+  that also has a "Login Page" heading) may match the heading instead of the button. Prefer
+  exact text or a more specific target. This is close to, but not identical to, Playwright's
+  text engine.
+- Field label matching covers `label[for]`, a wrapping `label`, and `aria-label`. It does not
+  cover every association Playwright's label engine handles.
+
+Practical impact: the default no-code authoring model leans on role targeting, which does not
+run on rustwright. Tests authored with CSS, XPath, text, or label targets do run.
 
 ## 4. Interaction gaps
 

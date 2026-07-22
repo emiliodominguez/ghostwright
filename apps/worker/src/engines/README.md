@@ -9,8 +9,9 @@ Playwright-shaped Node binding.
 
 rustwright's Node binding is small and selector-string based. It exposes `chromium.launch`,
 `browser.newPage`, and a page with `goto`, `click(selector)`, `fill(selector, value)`,
-`textContent(selector)`, `evaluate`, `screenshot`, and `close`. It has no locator objects, no
-browser contexts, and Chromium only.
+`textContent(selector)`, `evaluate`, `screenshot`, and `close`. Its selector engine resolves
+CSS, XPath, and Playwright's `text=` engine. It has no locator objects, no browser contexts,
+and Chromium only.
 
 Ghostwright's step contract (`packages/dsl/src/runtime.ts`) is locator based and expects a
 much larger surface, so the adapter can only map the part that fits.
@@ -26,16 +27,18 @@ much larger surface, so the adapter can only map the part that fits.
 - Waiting: fixed time, `waitForURL` (polled), `waitForLoadState` (approximated), and element
   `waitFor` (polled visibility)
 - Screenshots: page and full-page
-- Targets that map cleanly to CSS: `css`, plus `testId`, `placeholder`, `altText`, and
-  `title` getters
+- Targeting: `css`, `xpath`, visible `text`, field `label`, `testId`, `placeholder`,
+  `altText`, and `title`. Text and label are resolved through XPath, which rustwright's engine
+  supports, so they work for both actions and assertions.
 
 ## What does not run (needs the Playwright engine)
 
 The adapter throws a clear `EngineUnsupportedError` naming the feature, so an unsupported test
 fails fast instead of behaving oddly:
 
-- Targeting by role, accessible name, visible text, or field label
-- XPath and `aria-ref` selectors, and the which-one (nth) selector
+- Targeting by role or accessible name (rustwright has no `role=` engine and CSS/XPath cannot
+  express accessible names reliably)
+- `aria-ref` selectors and the which-one (nth) selector
 - Double-click, hover, press a key, choose from a dropdown, drag and drop, scroll to an
   element, file uploads, go back
 - The AI step (needs Playwright's accessibility snapshot)
