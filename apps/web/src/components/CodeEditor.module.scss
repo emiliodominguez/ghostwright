@@ -1,0 +1,28 @@
+@use '../styles/abstracts' as *;
+
+.editor {
+	border: 1px solid var(--border);
+	border-radius: radius('lg');
+	background-color: var(--field-bg);
+	overflow: hidden;
+	transition:
+		border-color $transition-base $ease,
+		box-shadow $transition-base $ease;
+
+	&:hover:not(:focus-within) {
+		border-color: var(--border-strong);
+	}
+
+	&:focus-within {
+		border-color: var(--accent-border);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+}
+
+.read-only {
+	background-color: color-mix(in srgb, var(--field-bg) 60%, var(--bg-subtle));
+
+	&:hover:not(:focus-within) {
+		border-color: var(--border);
+	}
+}

@@ -1,0 +1,516 @@
+@use '../styles/abstracts' as *;
+
+.builder {
+	display: flex;
+	flex-direction: column;
+	gap: space(5);
+}
+
+.field-group {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+}
+
+.label {
+	@include field-label;
+}
+
+.input,
+.textarea {
+	@include field;
+}
+
+.textarea {
+	min-height: 5rem;
+	resize: vertical;
+	font-family: var(--font-mono);
+	font-size: font-size('sm');
+}
+
+.select {
+	@include field;
+	appearance: none;
+	padding-right: space(8);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right space(2.5) center;
+	cursor: pointer;
+}
+
+// ── Step name / section headings ────────────────────────────────────────────
+.section {
+	display: flex;
+	flex-direction: column;
+}
+
+.section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: space(2);
+}
+
+.section-label {
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+	color: var(--text-subtle);
+}
+
+.text-btn {
+	@include button-reset;
+	font-size: font-size('xs');
+	color: var(--text-faint);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text-muted);
+	}
+}
+
+.accent-btn {
+	@include button-reset;
+	font-size: font-size('xs');
+	color: var(--accent-text);
+	transition: opacity $transition-base $ease;
+
+	&:hover {
+		opacity: 0.8;
+	}
+}
+
+// ── Empty states ────────────────────────────────────────────────────────────
+.empty {
+	padding: space(8) space(4);
+	border: 1px dashed var(--border);
+	border-radius: radius('xl');
+	text-align: center;
+	font-size: font-size('base');
+	color: var(--text-subtle);
+}
+
+.link-inline {
+	@include button-reset;
+	color: var(--text-muted);
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 2px;
+
+	&:hover {
+		color: var(--text);
+	}
+}
+
+// ── Step cards ──────────────────────────────────────────────────────────────
+.step-list {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	counter-reset: step;
+}
+
+.step {
+	@include card;
+	padding: space(3);
+	transition: border-color $transition-base $ease;
+
+	&:hover {
+		border-color: var(--border-strong);
+	}
+}
+
+.step-top {
+	display: flex;
+	align-items: flex-start;
+	gap: space(3);
+	margin-bottom: space(2);
+}
+
+.step-num {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 1.5rem;
+	height: 1.5rem;
+	margin-top: 1px;
+	border-radius: radius('full');
+	background-color: var(--surface-3);
+	color: var(--text-muted);
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+	font-variant-numeric: tabular-nums;
+}
+
+.step-desc {
+	flex: 1;
+	padding-top: 2px;
+	font-size: font-size('base');
+	color: var(--text);
+}
+
+.step-controls {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: space(0.5);
+	opacity: 0;
+	transition: opacity $transition-base $ease;
+
+	.step:hover &,
+	.step:focus-within & {
+		opacity: 1;
+	}
+}
+
+.icon-btn {
+	@include button-reset;
+	@include focusable;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: space(1);
+	border-radius: radius('sm');
+	color: var(--text-faint);
+	transition:
+		color $transition-base $ease,
+		background-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+	}
+
+	&:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+
+	&.danger:hover {
+		background-color: var(--danger-soft);
+		color: var(--danger-text);
+	}
+}
+
+.step-body {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+	padding-left: calc(#{space(6)} + #{space(3)});
+}
+
+.condition {
+	display: flex;
+	flex-direction: column;
+	gap: space(1);
+}
+
+.condition-label {
+	font-size: font-size('2xs');
+	font-weight: $weight-medium;
+	color: var(--text-faint);
+}
+
+.condition-input {
+	@include field;
+	padding: space(1.5) space(3);
+	font-size: font-size('xs');
+	color: var(--text-muted);
+}
+
+// ── Action palette ──────────────────────────────────────────────────────────
+.palette {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: space(2);
+
+	@include at('sm') {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+.action-btn {
+	@include button-reset;
+	@include focusable;
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	padding: space(2) space(3);
+	border: 1px solid var(--border);
+	border-radius: radius('lg');
+	background-color: var(--surface-1);
+	text-align: left;
+	font-size: font-size('xs');
+	color: var(--text-muted);
+	transition:
+		border-color $transition-base $ease,
+		background-color $transition-base $ease,
+		color $transition-base $ease;
+
+	&:hover {
+		border-color: var(--accent-border);
+		background-color: var(--surface-3);
+		color: var(--text);
+
+		.action-icon {
+			color: var(--accent-text);
+		}
+	}
+}
+
+.action-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+}
+
+.action-text {
+	@include line-clamp(2);
+}
+
+// ── Saved actions ───────────────────────────────────────────────────────────
+.saved-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: space(2);
+	margin-top: space(2);
+
+	@include at('sm') {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+.saved-action {
+	display: flex;
+	align-items: stretch;
+	overflow: hidden;
+	border: 1px solid var(--accent-border);
+	border-radius: radius('lg');
+	background-color: var(--accent-soft);
+	font-size: font-size('xs');
+	color: var(--accent-text);
+}
+
+.saved-ref {
+	@include button-reset;
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: space(2);
+	min-width: 0;
+	padding: space(2) space(3);
+	text-align: left;
+	transition: background-color $transition-base $ease;
+
+	span {
+		@include truncate;
+	}
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+	}
+}
+
+.saved-copy {
+	@include button-reset;
+	padding-inline: space(2.5);
+	border-left: 1px solid var(--accent-border);
+	color: var(--accent-text);
+	opacity: 0.8;
+	transition:
+		background-color $transition-base $ease,
+		opacity $transition-base $ease;
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+		opacity: 1;
+	}
+}
+
+// ── Feedback banners ────────────────────────────────────────────────────────
+.alert {
+	padding: space(2) space(3);
+	border: 1px solid var(--danger-border);
+	border-radius: radius('lg');
+	background-color: var(--danger-soft);
+	font-size: font-size('base');
+	color: var(--danger-text);
+}
+
+.notice {
+	padding: space(2) space(3);
+	border: 1px solid var(--success-border);
+	border-radius: radius('lg');
+	background-color: var(--success-soft);
+	font-size: font-size('base');
+	color: var(--success-text);
+}
+
+// ── Footer actions ──────────────────────────────────────────────────────────
+.footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: space(3);
+}
+
+.submit {
+	@include button-primary;
+	padding: space(2.5) space(5);
+	font-size: font-size('base');
+	font-weight: $weight-semibold;
+}
+
+.save-action-row {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+}
+
+.save-action-input {
+	@include field;
+	width: auto;
+	padding: space(1.5) space(3);
+	font-size: font-size('xs');
+}
+
+.save-confirm {
+	@include button-primary;
+	padding: space(1.5) space(3);
+	font-size: font-size('xs');
+}
+
+.code-toggle {
+	@include button-reset;
+	display: inline-flex;
+	align-items: center;
+	gap: space(1.5);
+	margin-left: auto;
+	font-size: font-size('xs');
+	color: var(--text-muted);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text);
+	}
+}
+
+.hint {
+	margin-top: space(1);
+	font-size: font-size('xs');
+	color: var(--text-faint);
+
+	code {
+		padding: 1px space(1);
+		border-radius: radius('sm');
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+		font-size: 0.95em;
+	}
+}
+
+// ── Element / strategy picker ───────────────────────────────────────────────
+.picker {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+}
+
+.strategy-grid {
+	display: grid;
+	grid-template-columns: 10rem 1fr;
+	gap: space(2);
+}
+
+.role-grid {
+	display: grid;
+	grid-template-columns: 7rem 1fr;
+	gap: space(2);
+}
+
+.adv-toggle {
+	@include button-reset;
+	align-self: flex-start;
+	font-size: font-size('xs');
+	color: var(--text-faint);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text-muted);
+	}
+}
+
+.adv-panel {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+	padding: space(3);
+	border: 1px solid var(--border-subtle);
+	border-radius: radius('lg');
+	background-color: var(--field-bg);
+}
+
+.adv-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: space(4);
+}
+
+.check-label {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	font-size: font-size('xs');
+	color: var(--text-muted);
+
+	input[type='checkbox'] {
+		width: 0.95rem;
+		height: 0.95rem;
+		accent-color: var(--accent);
+	}
+}
+
+.nth-input {
+	width: 3.5rem;
+	padding: space(1) space(2);
+	border: 1px solid var(--border);
+	border-radius: radius('sm');
+	background-color: var(--field-bg);
+	color: var(--text);
+	font-size: font-size('xs');
+	outline: none;
+
+	&:focus-visible {
+		border-color: var(--accent-border);
+	}
+}
+
+.fallback-row {
+	display: flex;
+	align-items: flex-start;
+	gap: space(2);
+	margin-bottom: space(2);
+}
+
+.fallback-main {
+	flex: 1;
+	min-width: 0;
+}
+
+.fallback-remove {
+	@include button-reset;
+	margin-top: space(6);
+	padding: space(1);
+	border-radius: radius('sm');
+	color: var(--text-faint);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--danger-text);
+	}
+}
