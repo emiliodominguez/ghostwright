@@ -9,27 +9,28 @@ is the honest list of everything that is not done or not equivalent.
 
 ## Status in one line
 
-The engine adapter (`apps/worker/src/engines/rustwright.ts`) exists and is verified in
-isolation, but nothing in the running app can use it yet, and large parts of the platform's
-features cannot run on it at all.
+The rustwright engine is wired into the worker and opt-in through
+`GHOSTWRIGHT_ENGINE=rustwright`. It has been run end to end through the real queue and worker.
+Playwright stays the default and full-featured engine, and large parts of the platform still
+cannot run on rustwright at all.
 
-## 1. Not integrated into the worker (biggest gap)
+## 1. Integration and how to select the engine
 
-The adapter is standalone. It has been proven by a spike that compiles a DSL test and runs it
-through the adapter directly. It is not wired into the actual run path.
+The adapter is wired into `apps/worker/src/run.ts`. Set `GHOSTWRIGHT_ENGINE=rustwright` on the
+worker to run every job on rustwright; leave it unset (the default) for Playwright. When
+rustwright is selected the worker skips the browser context and everything that hangs off it
+(tracing, video, HAR, storageState, per-test viewport, user agent, locale, HTTP basic auth,
+extra headers, and the page-error hook) and uses the adapter's page and `expect`. The trace,
+video, and HAR uploads are skipped, so those artifact keys stay null.
 
-- `apps/worker/src/run.ts` still always uses Playwright. There is no way to select rustwright
-  for a run through the queue, the API, or the dashboard.
-- There is no engine-selection mechanism (no env var, no per-test setting).
-- `run.ts` unconditionally creates a browser context and starts tracing, video, and HAR
-  recording, and injects Playwright's `expect`. None of that is gated on the engine, so it
-  cannot currently branch to the rustwright path.
-- `run.ts` reads the final URL from `page.url()` and uploads trace, video, and HAR artifacts.
-  On rustwright those artifacts do not exist, so the upload and results flow would need to be
-  engine-aware.
+Integration nuances that remain:
 
-Closing this is the main remaining work and is the riskiest change, because `run.ts` is the
-core of the worker.
+- Engine selection is worker-wide (an env var). There is no per-test or per-run choice, and no
+  way to pick the engine from the dashboard.
+- The results page already tolerates missing trace, video, and HAR (it renders no broken
+  links), but it does not tell the viewer which engine produced the run.
+- `failOnJsError` is a no-op on rustwright (there is no page-error hook), and the final URL
+  comes from the adapter's last-known URL rather than a live read.
 
 ## 2. Engine capabilities rustwright does not have
 
@@ -121,10 +122,11 @@ differences.
 
 ## 7. Verification gaps
 
-- The adapter is proven only by a manual spike (a compiled login test), not by an automated
-  test in the suite.
-- There is no test asserting that each unsupported step throws.
-- It has not been run through the real worker, queue, and database path.
+- It has been run end to end through the real queue, worker, and database, and through compiled
+  tests covering css, xpath, text, label, and exact targeting plus custom-code and URL
+  assertions.
+- It is not yet covered by an automated test in the suite, and there is no test asserting that
+  each unsupported step throws.
 - rustwright is alpha (0.1.1). Behavioral parity with Playwright is not proven, so bugs in the
   engine itself are possible.
 
@@ -140,13 +142,18 @@ differences.
 
 ## What it would take to finish
 
-1. Add engine selection (env var and/or a per-test setting), defaulting to Playwright.
-2. Refactor `run.ts` around an engine interface that reports capabilities, and gate context
-   creation, tracing, video, HAR, `storageState`, and the `expect` source on those
-   capabilities.
-3. Make artifact upload and the results page engine-aware, so a rustwright run cleanly shows
-   no trace, video, or HAR instead of broken links.
-4. Decide the story for authenticated tests, the AI step, and visual checks on rustwright
-   (most likely: mark them unsupported and surface that in the UI before a run starts).
-5. Add automated tests for the adapter, including the unsupported-step errors.
-6. Sort out browser provisioning and container support for a rustwright-only deployment.
+Done on this branch:
+
+- Engine selection via `GHOSTWRIGHT_ENGINE`, defaulting to Playwright.
+- `run.ts` gates context creation, tracing, video, HAR, `storageState`, and the `expect`
+  source on the engine, and skips the trace, video, and HAR uploads on rustwright.
+
+Still to do:
+
+1. Per-test or per-run engine selection, and a way to pick it from the dashboard.
+2. Surface the engine on the results page, and warn before a run when a test uses steps the
+   selected engine cannot run.
+3. Decide the product story for authenticated tests, the AI step, and visual checks on
+   rustwright (most likely: mark them unsupported in the UI).
+4. Add automated tests for the adapter, including the unsupported-step errors.
+5. Sort out browser provisioning and container support for a rustwright-only deployment.

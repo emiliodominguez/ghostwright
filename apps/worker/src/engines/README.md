@@ -50,10 +50,15 @@ capture (`storageState`), and Firefox or WebKit.
 
 ## Status
 
-`rustwright.ts` implements and verifies the supported subset: a compiled login test (CSS
-targeting, custom-code assertion, URL assertion, screenshot) runs end to end on rustwright,
-and unsupported steps throw the clear error above.
+The engine is wired into the worker. Set `GHOSTWRIGHT_ENGINE=rustwright` to run jobs on it;
+leave it unset for the default Playwright engine. `run.ts` gates the context, tracing,
+recording, and login-session steps on the engine and skips the trace, video, and HAR artifacts
+on rustwright.
 
-Still to do: wire engine selection into `run.ts` so a run can opt into rustwright, gate the
-context, tracing, recording, and login-session steps on the engine's capabilities, and skip
-the trace, video, and HAR artifacts when they are not produced.
+Verified end to end through the real queue and worker, and through compiled tests covering
+css, xpath, text, label, and exact targeting plus custom-code and URL assertions. Unsupported
+steps throw the clear error above.
+
+The remaining work (per-test engine selection, showing the engine in the UI, automated tests,
+and browser provisioning for a rustwright-only deployment) is tracked in
+[docs/rustwright-gaps.md](../../../../docs/rustwright-gaps.md).
