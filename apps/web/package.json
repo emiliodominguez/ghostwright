@@ -23,14 +23,12 @@
 		"@ghostwright/dsl": "workspace:*",
 		"@ghostwright/queue": "workspace:*",
 		"@lezer/highlight": "^1.2.3",
-		"@tailwindcss/vite": "^4.3.3",
 		"@trpc/client": "^11.18.0",
 		"@trpc/server": "^11.18.0",
 		"astro": "^7.1.1",
 		"codemirror": "^6.0.2",
 		"drizzle-orm": "^0.45.2",
 		"solid-js": "^1.9.14",
-		"tailwindcss": "^4.3.3",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

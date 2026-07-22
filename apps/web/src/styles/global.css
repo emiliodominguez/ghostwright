@@ -1,4 +1,0 @@
-/* Tailwind stays active for sections not yet migrated to the SCSS design system.
-   Theme tokens, base styles and the design system live in `global.scss`, imported
-   after this file so its base rules win on overlap. */
-@import 'tailwindcss';
