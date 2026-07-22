@@ -1,5 +1,5 @@
 import type { TestSettings } from '@ghostwright/dsl';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, onMount, Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { trpc } from '../lib/trpc';
 
@@ -12,6 +12,11 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 	const [open, setOpen] = createSignal(false);
 	const [busy, setBusy] = createSignal(false);
 	const [saved, setSaved] = createSignal(false);
+	const [logins, setLogins] = createSignal<{ id: string; name: string; captured: boolean }[]>([]);
+
+	onMount(async () => {
+		setLogins((await trpc.loginFlows.list.query()) as { id: string; name: string; captured: boolean }[]);
+	});
 
 	/** Trim empties into undefined so the stored settings stay minimal. */
 	function clean(): TestSettings {
@@ -25,6 +30,7 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 		if (s.stepDelayMs) out.stepDelayMs = Number(s.stepDelayMs);
 		if (s.failOnJsError) out.failOnJsError = true;
 		if (s.retry) out.retry = true;
+		if (s.loginFlowId) out.loginFlowId = s.loginFlowId;
 		return out;
 	}
 
@@ -73,6 +79,20 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 					<div>
 						<label class={label}>Language (locale)</label>
 						<input class={field} value={s.language ?? ''} placeholder="en-US" onInput={(e) => setS('language', e.currentTarget.value)} />
+					</div>
+					<div class="sm:col-span-2">
+						<label class={label}>Log in first with</label>
+						<select class={field} value={s.loginFlowId ?? ''} onChange={(e) => setS('loginFlowId', e.currentTarget.value || undefined)}>
+							<option value="">No login (run as anonymous)</option>
+							<For each={logins()}>
+								{(l) => (
+									<option value={l.id}>
+										{l.name}
+										{l.captured ? ' ✓' : ' (not captured)'}
+									</option>
+								)}
+							</For>
+						</select>
 					</div>
 					<div class="sm:col-span-2">
 						<label class={label}>Custom user agent</label>

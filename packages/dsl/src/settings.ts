@@ -20,6 +20,8 @@ export const testSettingsSchema = z.object({
 	failOnJsError: z.boolean().optional(),
 	/** Re-run once automatically on failure (cuts false positives). */
 	retry: z.boolean().optional(),
+	/** Log in first using this login flow's captured session (id). */
+	loginFlowId: z.string().optional(),
 	/** Extra HTTP headers sent with every request. */
 	headers: z.record(z.string(), z.string()).optional(),
 });

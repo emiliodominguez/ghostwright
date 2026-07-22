@@ -1,0 +1,29 @@
+---
+import Layout from '../layouts/Layout.astro';
+import StepBuilder from '../components/StepBuilder.tsx';
+import LoginFlows from '../components/LoginFlows.tsx';
+---
+
+<Layout title="Logins">
+	<div class="mb-8">
+		<a href="/" class="text-xs text-white/40 hover:text-white/70">← home</a>
+		<h1 class="mt-1 text-2xl font-semibold tracking-tight">Logins</h1>
+		<p class="mt-1 text-sm text-white/40">
+			Build a login flow once, capture its session, then bind it to any test so runs start already signed in. Use
+			<code class="text-white/60">{'{{secret.NAME}}'}</code> for passwords and the <strong>Enter a 2-factor code</strong> step for TOTP. End the flow
+			with a <strong>Check something is visible</strong> step so a failed login is caught.
+		</p>
+	</div>
+
+	<div class="grid gap-10 md:grid-cols-[0.9fr_1.1fr]">
+		<section>
+			<h2 class="mb-4 text-sm font-semibold text-white/50">Your login flows</h2>
+			<LoginFlows client:only="solid-js" />
+		</section>
+		<section>
+			<h2 class="mb-1 text-sm font-semibold text-white/50">Build a login flow</h2>
+			<p class="mb-5 text-sm text-white/40">Go to the login page, type credentials, sign in, and check you’re in.</p>
+			<StepBuilder client:only="solid-js" mode="login" />
+		</section>
+	</div>
+</Layout>

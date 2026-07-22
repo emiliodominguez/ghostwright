@@ -78,6 +78,13 @@
       "when": 1784678754287,
       "tag": "0010_robust_the_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784679146671,
+      "tag": "0011_brave_proudstar",
+      "breakpoints": true
     }
   ]
 }

@@ -133,8 +133,10 @@ export const appRouter = router({
 				const rows = test.dataJson ? (JSON.parse(test.dataJson) as Record<string, string>[]) : [];
 				const batches = rows.length > 0 ? rows : [undefined];
 				// Multi-browser: one run per browser × row (default chromium).
-				const settings = test.settings ? (JSON.parse(test.settings) as { browsers?: string[] }) : {};
+				const settings = test.settings ? (JSON.parse(test.settings) as { browsers?: string[]; loginFlowId?: string }) : {};
 				const browsers = settings.browsers?.length ? settings.browsers : ['chromium'];
+				// Log in first using the test's bound login flow (or an explicit override).
+				const loginFlowId = input.loginFlowId ?? settings.loginFlowId;
 				const ids: string[] = [];
 				for (const browser of browsers) {
 					for (const vars of batches) {
@@ -142,7 +144,7 @@ export const appRouter = router({
 							.insert(tables.run)
 							.values({ testVersionId: versionId, status: 'queued', browser, viewport: input.viewport })
 							.returning();
-						const job: RunJob = { runId: run.id, testVersionId: versionId, viewport: input.viewport, baseUrl: input.baseUrl, loginFlowId: input.loginFlowId, browser, vars };
+						const job: RunJob = { runId: run.id, testVersionId: versionId, viewport: input.viewport, baseUrl: input.baseUrl, loginFlowId, browser, vars };
 						await runQueue.add('run', job);
 						ids.push(run.id);
 					}
@@ -181,16 +183,33 @@ export const appRouter = router({
 	}),
 
 	loginFlows: router({
-		listByProject: publicProcedure.input(z.object({ projectId: z.string() })).query(async ({ input }) => {
-			return db.select().from(tables.loginFlow).where(eq(tables.loginFlow.projectId, input.projectId));
+		// All login flows in the default project, with capture status (never the session blob).
+		list: publicProcedure.query(async () => {
+			const projectId = await ensureDefaultProject();
+			return db
+				.select({
+					id: tables.loginFlow.id,
+					name: tables.loginFlow.name,
+					dsl: tables.loginFlow.dsl,
+					lastCapturedAt: tables.loginFlow.lastCapturedAt,
+					lastCaptureError: tables.loginFlow.lastCaptureError,
+					cookieCount: tables.loginFlow.cookieCount,
+					captured: tables.loginFlow.storageStateRef,
+				})
+				.from(tables.loginFlow)
+				.where(eq(tables.loginFlow.projectId, projectId))
+				.then((rows) => rows.map((r) => ({ ...r, captured: Boolean(r.captured) })));
 		}),
-		create: publicProcedure
-			.input(z.object({ projectId: z.string(), name: z.string().min(1), dsl: z.string(), totpSecretRef: z.string().optional() }))
-			.mutation(async ({ input }) => {
-				parseTest(JSON.parse(input.dsl));
-				const [row] = await db.insert(tables.loginFlow).values(input).returning();
-				return { id: row.id };
-			}),
+		create: publicProcedure.input(z.object({ name: z.string().min(1), dsl: z.string() })).mutation(async ({ input }) => {
+			parseTest(JSON.parse(input.dsl));
+			const projectId = await ensureDefaultProject();
+			const [row] = await db.insert(tables.loginFlow).values({ projectId, name: input.name, dsl: input.dsl }).returning();
+			return { id: row.id };
+		}),
+		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+			await db.delete(tables.loginFlow).where(eq(tables.loginFlow.id, input.id));
+			return { ok: true };
+		}),
 		// Enqueue a job that runs the flow and captures its session (encrypted at rest).
 		capture: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
 			await runQueue.add('capture', { captureLoginState: input.id });

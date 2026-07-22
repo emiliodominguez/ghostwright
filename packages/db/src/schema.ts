@@ -199,5 +199,9 @@ export const loginFlow = sqliteTable('login_flow', {
 	dsl: text('dsl').notNull(),
 	storageStateRef: text('storage_state_ref'),
 	totpSecretRef: text('totp_secret_ref'),
+	// capture status (verification): when it last ran, its error (null=ok), and cookie count
+	lastCapturedAt: integer('last_captured_at', { mode: 'timestamp_ms' }),
+	lastCaptureError: text('last_capture_error'),
+	cookieCount: integer('cookie_count'),
 	createdAt: createdAt(),
 });

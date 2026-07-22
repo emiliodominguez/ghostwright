@@ -123,10 +123,12 @@ function normalize(steps: Step[]): Step[] {
  * The no-code test builder: a stack of plain-language step cards plus an action palette.
  * This is the primary authoring surface — no code, no DSL knowledge required.
  */
-export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
+export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' }) {
 	const isAction = () => props.mode === 'action';
+	const isLogin = () => props.mode === 'login';
+	const special = () => props.mode === 'action' || props.mode === 'login';
 	const [name, setName] = createSignal('');
-	const [steps, setSteps] = createStore<Step[]>(isAction() ? [] : [...EXAMPLE]);
+	const [steps, setSteps] = createStore<Step[]>(special() ? [] : [...EXAMPLE]);
 	const [busy, setBusy] = createSignal(false);
 	const [err, setErr] = createSignal('');
 	const [showCode, setShowCode] = createSignal(false);
@@ -135,9 +137,9 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 	const [savingAction, setSavingAction] = createSignal(false);
 	const [actionName, setActionName] = createSignal('');
 
-	// Reusable actions can be dropped into a test (but not into another action, to keep authoring simple).
+	// Reusable actions can be dropped into a test (but not into another action/login, to keep authoring simple).
 	onMount(() => {
-		if (!isAction()) void refreshActions();
+		if (!special()) void refreshActions();
 	});
 	async function refreshActions() {
 		try {
@@ -203,7 +205,7 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 
 	async function submit() {
 		if (!name().trim()) {
-			setErr(isAction() ? 'Please name your action first.' : 'Please give your test a name first.');
+			setErr(isLogin() ? 'Please name your login flow first.' : isAction() ? 'Please name your action first.' : 'Please give your test a name first.');
 			return;
 		}
 		if (steps.length === 0) {
@@ -216,7 +218,10 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 			const clean = normalize(steps);
 			parseTest({ steps: clean });
 			const dsl = JSON.stringify({ steps: clean });
-			if (isAction()) {
+			if (isLogin()) {
+				await trpc.loginFlows.create.mutate({ name: name().trim(), dsl });
+				window.location.href = '/logins';
+			} else if (isAction()) {
 				await trpc.actions.create.mutate({ name: name().trim(), dsl });
 				window.location.href = '/actions';
 			} else {
@@ -232,12 +237,12 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 	return (
 		<div class="space-y-5">
 			<div>
-				<label class={label}>{isAction() ? 'Name your action' : 'Name your test'}</label>
+				<label class={label}>{isLogin() ? 'Name your login flow' : isAction() ? 'Name your action' : 'Name your test'}</label>
 				<input
 					class={field}
 					value={name()}
 					onInput={(e) => setName(e.currentTarget.value)}
-					placeholder={isAction() ? 'e.g. Log in' : 'e.g. Homepage loads and I can sign in'}
+					placeholder={isLogin() ? 'e.g. Staging login' : isAction() ? 'e.g. Log in' : 'e.g. Homepage loads and I can sign in'}
 				/>
 			</div>
 
@@ -361,9 +366,9 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' }) {
 					disabled={busy()}
 					class="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-50"
 				>
-					{busy() ? 'Saving…' : isAction() ? 'Save action' : 'Create test'}
+					{busy() ? 'Saving…' : isLogin() ? 'Save login flow' : isAction() ? 'Save action' : 'Create test'}
 				</button>
-				<Show when={!isAction()}>
+				<Show when={!special()}>
 					<Show
 						when={savingAction()}
 						fallback={
