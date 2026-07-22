@@ -218,22 +218,57 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 	{
 		traceSrc && (
 			<section class="block">
-				<div class="trace-head">
-					<h2 class="section-title">Trace</h2>
-					<a class="trace-open" href={traceSrc} target="_blank" rel="noopener">
-						Open full screen
-						<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-							<polyline points="15 3 21 3 21 9" />
-							<line x1="10" y1="14" x2="21" y2="3" />
-						</svg>
-					</a>
+				<h2 class="section-title">Trace</h2>
+				<p class="trace-hint">Press play (or scrub the timeline) to replay the run frame by frame — each moment shows the page snapshot, network calls and console.</p>
+				<div class="trace-panel">
+					<div class="trace-bar">
+						<span class="trace-name">
+							<span class="dot" data-tone="neutral"></span>
+							Playwright trace
+						</span>
+						<a class="trace-open" href={traceSrc} target="_blank" rel="noopener">
+							Open full screen
+							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+								<polyline points="15 3 21 3 21 9" />
+								<line x1="10" y1="14" x2="21" y2="3" />
+							</svg>
+						</a>
+					</div>
+					<iframe data-trace-src={traceSrc} class="trace" title="Playwright trace" />
 				</div>
-				<p class="trace-hint">A full step-by-step recording — click any action to see the DOM snapshot, network calls and console at that moment.</p>
-				<iframe src={traceSrc} class="trace" title="Playwright trace" />
 			</section>
 		)
 	}
+
+	{
+		/* Load the (heavy, autofocusing) trace viewer only when it scrolls into view,
+		   so entering the page doesn't jump down to it. */
+	}
+	<script is:inline>
+		(function () {
+			var el = document.querySelector('iframe[data-trace-src]');
+			if (!el) return;
+			var load = function () {
+				el.src = el.getAttribute('data-trace-src');
+				el.removeAttribute('data-trace-src');
+			};
+			if ('IntersectionObserver' in window) {
+				var io = new IntersectionObserver(
+					function (entries) {
+						if (entries.some((e) => e.isIntersecting)) {
+							load();
+							io.disconnect();
+						}
+					},
+					{ rootMargin: '250px' },
+				);
+				io.observe(el);
+			} else {
+				load();
+			}
+		})();
+	</script>
 
 	{inProgress && <script is:inline>setTimeout(() => location.reload(), 2000);</script>}
 </Layout>
@@ -685,19 +720,47 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 	}
 
 	// ── Trace ───────────────────────────────────────────────────────────────
-	.trace-head {
+	.trace-hint {
+		margin-top: space(-2);
+		margin-bottom: space(3);
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+	}
+
+	// A framed "window" so the embedded viewer reads as part of the page,
+	// not a bare white rectangle: a themed title bar over a clipped iframe.
+	.trace-panel {
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: radius('xl');
+		background-color: var(--bg-subtle);
+		box-shadow: var(--shadow-md);
+	}
+
+	.trace-bar {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: space(3);
 		flex-wrap: wrap;
+		padding: space(2.5) space(3.5);
+		border-bottom: 1px solid var(--border);
+		background-color: var(--surface-2);
+	}
+
+	.trace-name {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		font-size: font-size('xs');
+		font-weight: $weight-medium;
+		color: var(--text-muted);
 	}
 
 	.trace-open {
 		display: inline-flex;
 		align-items: center;
 		gap: space(1.5);
-		margin-bottom: space(4);
 		font-size: font-size('xs');
 		color: var(--accent-text);
 		transition: opacity $transition-base $ease;
@@ -707,19 +770,18 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		}
 	}
 
-	.trace-hint {
-		margin-top: space(-2);
-		margin-bottom: space(3);
-		font-size: font-size('xs');
-		color: var(--text-subtle);
+	.trace {
+		display: block;
+		width: 100%;
+		height: min(70vh, 720px);
+		min-height: 440px;
+		border: none;
+		// Dark placeholder until the deferred trace viewer loads (it paints white itself).
+		background-color: var(--bg-subtle);
 	}
 
-	.trace {
-		width: 100%;
-		height: min(72vh, 760px);
-		min-height: 460px;
-		border: 1px solid var(--border);
-		border-radius: radius('lg');
+	// The viewer's own UI is light; give it a white backdrop once it has a source.
+	.trace[src] {
 		background-color: #fff;
 	}
 </style>
