@@ -1,4 +1,5 @@
 import { copyObject } from '@ghostwright/artifacts';
+import { encrypt } from '@ghostwright/crypto';
 import { db, tables } from '@ghostwright/db';
 import { describeStep, expandActions, parseTest, testSettingsSchema, type Step } from '@ghostwright/dsl';
 import { runQueue, type RunJob } from '@ghostwright/queue';
@@ -52,6 +53,14 @@ async function ensureDefaultProject(): Promise<string> {
 	const [org] = await db.insert(tables.org).values({ name: 'default' }).returning();
 	const [project] = await db.insert(tables.project).values({ orgId: org.id, name: 'default' }).returning();
 	return project.id;
+}
+
+/** Ensure a default org exists and return its id (secrets are org-scoped). */
+async function ensureDefaultOrg(): Promise<string> {
+	const existing = await db.query.org.findFirst();
+	if (existing) return existing.id;
+	const [org] = await db.insert(tables.org).values({ name: 'default' }).returning();
+	return org.id;
 }
 
 export const appRouter = router({
@@ -215,6 +224,27 @@ export const appRouter = router({
 			await copyObject(step.screenshotKey, step.baselineKey);
 			const bl = await db.query.baseline.findFirst({ where: eq(tables.baseline.imageKey, step.baselineKey) });
 			if (bl) await db.update(tables.baseline).set({ approvedBy: 'ui' }).where(eq(tables.baseline.id, bl.id));
+			return { ok: true };
+		}),
+	}),
+
+	secrets: router({
+		// Never returns secret values — only names/kinds.
+		list: publicProcedure.query(async () => {
+			const orgId = await ensureDefaultOrg();
+			return db.select({ id: tables.secret.id, name: tables.secret.name, kind: tables.secret.kind }).from(tables.secret).where(eq(tables.secret.orgId, orgId));
+		}),
+		create: publicProcedure
+			.input(z.object({ name: z.string().min(1), value: z.string().min(1), kind: z.enum(['password', 'totp']).default('password') }))
+			.mutation(async ({ input }) => {
+				const orgId = await ensureDefaultOrg();
+				// Store encrypted; a TOTP seed is normalized (strip spaces, uppercase) before encrypting.
+				const value = input.kind === 'totp' ? input.value.replace(/\s+/g, '').toUpperCase() : input.value;
+				const [row] = await db.insert(tables.secret).values({ orgId, name: input.name, kind: input.kind, ref: encrypt(value) }).returning();
+				return { id: row.id };
+			}),
+		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+			await db.delete(tables.secret).where(eq(tables.secret.id, input.id));
 			return { ok: true };
 		}),
 	}),

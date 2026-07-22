@@ -3,6 +3,24 @@ import { decrypt } from '@ghostwright/crypto';
 import { db, tables } from '@ghostwright/db';
 import { and, eq } from 'drizzle-orm';
 
+/**
+ * Load an org's password secrets, decrypted, keyed as `secret.<name>` so they
+ * resolve via `{{secret.NAME}}` interpolation. TOTP seeds are excluded (they're
+ * consumed by the `totp` step, not typed as values).
+ *
+ * @param orgId - the org whose secrets to load.
+ * @returns a map of `secret.<name>` → decrypted value.
+ */
+export async function loadPasswordSecrets(orgId: string): Promise<Record<string, string>> {
+	const rows = await db
+		.select({ name: tables.secret.name, ref: tables.secret.ref })
+		.from(tables.secret)
+		.where(and(eq(tables.secret.orgId, orgId), eq(tables.secret.kind, 'password')));
+	const out: Record<string, string> = {};
+	for (const r of rows) out[`secret.${r.name}`] = decrypt(r.ref);
+	return out;
+}
+
 function base32decode(s: string): Buffer {
 	const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 	let bits = 0;

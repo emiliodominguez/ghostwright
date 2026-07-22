@@ -29,7 +29,7 @@ const ENGINES = { chromium, firefox, webkit };
 import type { RunJob } from '@ghostwright/queue';
 import { dispatchAlerts } from './alerts';
 import { captureLoginState, loadLoginState } from './login';
-import { totpCodeForSecret } from './secrets';
+import { loadPasswordSecrets, totpCodeForSecret } from './secrets';
 import { makeVarStore } from './variables';
 import { makeVisualSink, type VisualOutcome } from './visual';
 
@@ -221,7 +221,8 @@ async function runAttempt(
 	const stepExpect: StepExpect = (target) => expect(target as never) as never;
 	const pendingVisual: { current?: VisualOutcome } = {};
 	const { vars, resolveVar } = makeVarStore();
-	// Seed data-driven row variables so {{column}} resolves for this run.
+	// Seed password secrets ({{secret.NAME}}) then data-driven row variables ({{column}}).
+	if (orgId) Object.assign(vars, await loadPasswordSecrets(orgId));
 	if (job.vars) Object.assign(vars, job.vars);
 	const ctx: RunContext = {
 		expect: stepExpect,

@@ -161,7 +161,11 @@ export const secret = sqliteTable('secret', {
 		.notNull()
 		.references(() => org.id),
 	name: text('name').notNull(),
-	// Infisical path or encrypted ciphertext ref — never a plaintext secret
+	// 'password' → usable as {{secret.NAME}}; 'totp' → base32 seed for the totp step
+	kind: text('kind', { enum: ['password', 'totp'] })
+		.notNull()
+		.default('password'),
+	// encrypted ciphertext ref (AES-256-GCM) — never a plaintext secret
 	ref: text('ref').notNull(),
 	createdAt: createdAt(),
 });

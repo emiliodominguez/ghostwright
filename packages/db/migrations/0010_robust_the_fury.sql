@@ -1,0 +1,1 @@
+ALTER TABLE `secret` ADD `kind` text DEFAULT 'password' NOT NULL;

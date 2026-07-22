@@ -62,6 +62,9 @@ importers:
       '@ghostwright/artifacts':
         specifier: workspace:*
         version: link:../../packages/artifacts
+      '@ghostwright/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@ghostwright/db':
         specifier: workspace:*
         version: link:../../packages/db
