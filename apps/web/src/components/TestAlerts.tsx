@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 import { trpc } from '../lib/trpc';
 import Panel from './Panel';
 import { IconBell } from './icons';

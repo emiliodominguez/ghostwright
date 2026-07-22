@@ -57,7 +57,7 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 									type="checkbox"
 									checked={(s.browsers ?? ['chromium']).includes(b)}
 									onChange={(e) => {
-										const cur = new Set(s.browsers ?? ['chromium']);
+										const cur = new Set<'chromium' | 'firefox' | 'webkit'>(s.browsers ?? ['chromium']);
 										e.currentTarget.checked ? cur.add(b) : cur.delete(b);
 										setS('browsers', [...cur]);
 									}}
