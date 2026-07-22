@@ -168,6 +168,9 @@ importers:
       playwright-core:
         specifier: ^1.61.1
         version: 1.61.1
+      rustwright:
+        specifier: ^0.1.1
+        version: 0.1.1
     devDependencies:
       '@types/nodemailer':
         specifier: ^8.0.1
@@ -4490,6 +4493,9 @@ packages:
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
+
+  rustwright@0.1.1:
+    resolution: {integrity: sha512-P385Vayj4Vtv4slaq6I2I+Ul9ShEcrk/UHXtD1b17lUdhlk7nBILKmjjSPqo0x6xyMj+9PnUzXOYWkcnv2DnTQ==}
 
   safe-buffer@5.2.1:
     resolution: {integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==}
@@ -9564,6 +9570,8 @@ snapshots:
       path-to-regexp: 8.4.2
     transitivePeerDependencies:
       - supports-color
+
+  rustwright@0.1.1: {}
 
   safe-buffer@5.2.1: {}
 
