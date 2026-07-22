@@ -1,6 +1,9 @@
 import { createSignal } from 'solid-js';
 import { trpc } from '../lib/trpc';
+import { IconPlay } from './icons';
+import styles from './controls.module.scss';
 
+/** Enqueue a run for a test and jump to its live result page. */
 export default function RunNow(props: { testId: string }) {
 	const [busy, setBusy] = createSignal(false);
 
@@ -15,12 +18,9 @@ export default function RunNow(props: { testId: string }) {
 	}
 
 	return (
-		<button
-			onClick={run}
-			disabled={busy()}
-			class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-black transition hover:bg-emerald-400 disabled:opacity-50"
-		>
-			{busy() ? 'Starting…' : '▶ Run now'}
+		<button type="button" onClick={run} disabled={busy()} class={styles['run']}>
+			<IconPlay size={13} />
+			{busy() ? 'Starting…' : 'Run now'}
 		</button>
 	);
 }

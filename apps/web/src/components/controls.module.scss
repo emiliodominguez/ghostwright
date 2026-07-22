@@ -1,0 +1,113 @@
+@use '../styles/abstracts' as *;
+
+// Shared button variants for the small action islands (run / approve / delete).
+
+.run {
+	@include button-base;
+	padding: space(2) space(4);
+	border: 1px solid transparent;
+	background-color: var(--success);
+	color: #052e1a;
+	font-weight: $weight-medium;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--success) 85%, white);
+	}
+}
+
+.approve {
+	@include button-base;
+	padding: space(1.5) space(3);
+	border: 1px solid transparent;
+	background-color: var(--warning);
+	color: #3a2503;
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--warning) 85%, white);
+	}
+}
+
+.approved {
+	display: inline-flex;
+	align-items: center;
+	gap: space(1.5);
+	padding: space(1.5) space(3);
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+	color: var(--success-text);
+}
+
+.delete-link {
+	@include button-reset;
+	@include focusable;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--danger-text);
+	}
+}
+
+.delete-btn {
+	@include button-reset;
+	@include focusable;
+	padding: space(1) space(2.5);
+	border: 1px solid var(--border);
+	border-radius: radius('md');
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	transition:
+		color $transition-base $ease,
+		border-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		border-color: var(--danger-border);
+		color: var(--danger-text);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.confirm {
+	display: inline-flex;
+	align-items: center;
+	gap: space(2);
+	font-size: font-size('xs');
+}
+
+.confirm-label {
+	color: var(--text-muted);
+}
+
+.confirm-yes {
+	@include button-reset;
+	padding: space(1) space(2.5);
+	border-radius: radius('md');
+	background-color: var(--danger);
+	color: #fff;
+	font-weight: $weight-medium;
+	transition: background-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--danger) 88%, black);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.cancel {
+	@include button-reset;
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text-muted);
+	}
+}

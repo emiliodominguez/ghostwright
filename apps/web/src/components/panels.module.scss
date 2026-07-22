@@ -1,0 +1,201 @@
+@use '../styles/abstracts' as *;
+
+// Shared styling for the collapsible test-config panels (Settings / Data / Alerts)
+// and their forms. Imported by Panel.tsx and each panel component.
+
+.panel {
+	@include card;
+	overflow: hidden;
+}
+
+.panel-head {
+	@include button-reset;
+	@include focusable;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	padding: space(3) space(4);
+	color: var(--text);
+	transition: background-color $transition-base $ease;
+
+	&:hover {
+		background-color: var(--surface-3);
+	}
+}
+
+.panel-title {
+	display: inline-flex;
+	align-items: center;
+	gap: space(2);
+	font-size: font-size('base');
+	font-weight: $weight-medium;
+}
+
+.panel-icon {
+	display: inline-flex;
+	color: var(--text-subtle);
+}
+
+.panel-subtitle {
+	font-weight: $weight-normal;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+}
+
+.panel-chevron {
+	color: var(--text-faint);
+	transition: transform $transition-base $ease;
+
+	&.open {
+		transform: rotate(180deg);
+	}
+}
+
+.panel-body {
+	border-top: 1px solid var(--border);
+	padding: space(4);
+}
+
+// ── Forms ───────────────────────────────────────────────────────────────────
+.grid {
+	display: grid;
+	gap: space(3);
+
+	@include at('sm') {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.col-span-2 {
+	@include at('sm') {
+		grid-column: span 2;
+	}
+}
+
+.field-group {
+	display: flex;
+	flex-direction: column;
+}
+
+.label {
+	@include field-label;
+}
+
+.input {
+	@include field;
+}
+
+.select {
+	@include select-field;
+}
+
+.check-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: space(4);
+}
+
+.check-label {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	font-size: font-size('base');
+	color: var(--text-muted);
+
+	input[type='checkbox'] {
+		width: 0.95rem;
+		height: 0.95rem;
+		accent-color: var(--accent);
+	}
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: space(3);
+}
+
+.save-btn {
+	@include button-primary;
+}
+
+.saved {
+	display: inline-flex;
+	align-items: center;
+	gap: space(1.5);
+	font-size: font-size('base');
+	color: var(--success-text);
+}
+
+.hint {
+	font-size: font-size('xs');
+	color: var(--text-faint);
+}
+
+.textarea {
+	@include field;
+	min-height: 6rem;
+	resize: vertical;
+	font-family: var(--font-mono);
+	font-size: font-size('sm');
+}
+
+// A subtle secondary/ghost action button for row-level controls.
+.ghost-btn {
+	@include button-secondary;
+	padding: space(1.5) space(3);
+	font-size: font-size('xs');
+}
+
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: space(3);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(2);
+	padding: space(2) space(3);
+	border: 1px solid var(--border);
+	border-radius: radius('lg');
+	font-size: font-size('base');
+
+	strong {
+		font-weight: $weight-medium;
+	}
+
+	.muted {
+		color: var(--text-subtle);
+	}
+
+	.value {
+		color: var(--text-muted);
+	}
+}
+
+.remove-btn {
+	@include button-reset;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--danger-text);
+	}
+}
+
+.form-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: space(2);
+}
+
+.grow {
+	flex: 1;
+	min-width: 12rem;
+}

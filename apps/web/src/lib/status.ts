@@ -1,34 +1,38 @@
-/** Human-readable label + badge styling for a run/step status. */
-const RUN: Record<string, { label: string; badge: string }> = {
-	passed: { label: 'Passed', badge: 'bg-emerald-500/15 text-emerald-300' },
-	failed: { label: 'Failed', badge: 'bg-red-500/15 text-red-300' },
-	errored: { label: 'Something went wrong', badge: 'bg-amber-500/15 text-amber-300' },
-	running: { label: 'Running…', badge: 'bg-sky-500/15 text-sky-300' },
-	queued: { label: 'Waiting to start', badge: 'bg-white/10 text-white/50' },
+/** Semantic color role for a status, mapped to design-system badge tokens in CSS. */
+export type Tone = 'success' | 'danger' | 'warning' | 'running' | 'neutral';
+
+/** Human-readable label + tone for a run/step status. */
+const RUN: Record<string, { label: string; tone: Tone }> = {
+	passed: { label: 'Passed', tone: 'success' },
+	failed: { label: 'Failed', tone: 'danger' },
+	errored: { label: 'Something went wrong', tone: 'warning' },
+	running: { label: 'Running…', tone: 'running' },
+	queued: { label: 'Waiting to start', tone: 'neutral' },
 };
 
 /**
- * Friendly label + badge classes for a run status.
+ * Friendly label + semantic tone for a run status. Render with the global
+ * `.badge` class and a `data-tone` attribute.
  *
  * @param status - the raw run status.
- * @returns `{ label, badge }` — plain-language text and Tailwind badge classes.
+ * @returns `{ label, tone }`.
  */
-export function runStatus(status: string): { label: string; badge: string } {
-	return RUN[status] ?? { label: status, badge: 'bg-white/10 text-white/50' };
+export function runStatus(status: string): { label: string; tone: Tone } {
+	return RUN[status] ?? { label: status, tone: 'neutral' };
 }
 
-const STEP: Record<string, { label: string; cls: string }> = {
-	passed: { label: '✓ passed', cls: 'text-emerald-300' },
-	failed: { label: '✕ failed', cls: 'text-red-300' },
-	skipped: { label: 'skipped', cls: 'text-white/40' },
+const STEP: Record<string, { label: string; tone: Tone }> = {
+	passed: { label: 'passed', tone: 'success' },
+	failed: { label: 'failed', tone: 'danger' },
+	skipped: { label: 'skipped', tone: 'neutral' },
 };
 
 /**
- * Friendly label + text color for a single step result.
+ * Friendly label + semantic tone for a single step result.
  *
  * @param status - the raw step status.
- * @returns `{ label, cls }`.
+ * @returns `{ label, tone }`.
  */
-export function stepStatus(status: string): { label: string; cls: string } {
-	return STEP[status] ?? { label: status, cls: 'text-white/40' };
+export function stepStatus(status: string): { label: string; tone: Tone } {
+	return STEP[status] ?? { label: status, tone: 'neutral' };
 }

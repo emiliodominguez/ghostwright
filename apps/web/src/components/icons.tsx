@@ -64,6 +64,71 @@ export function IconStar(p: IconProps) {
 export function IconSparkle(p: IconProps) {
 	return svg(<path d="M12 3l1.8 5.4 5.4 1.8-5.4 1.8L12 17.4l-1.8-5.4L4.8 10.2l5.4-1.8L12 3z" />, p);
 }
+export function IconCheck(p: IconProps) {
+	return svg(<polyline points="20 6 9 17 4 12" />, p);
+}
+export function IconSettings(p: IconProps) {
+	return svg(
+		<>
+			<circle cx="12" cy="12" r="3" />
+			<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+		</>,
+		p,
+	);
+}
+export function IconData(p: IconProps) {
+	return svg(
+		<>
+			<rect x="3" y="3" width="7" height="7" rx="1" />
+			<rect x="14" y="3" width="7" height="7" rx="1" />
+			<rect x="14" y="14" width="7" height="7" rx="1" />
+			<rect x="3" y="14" width="7" height="7" rx="1" />
+		</>,
+		p,
+	);
+}
+export function IconBell(p: IconProps) {
+	return svg(
+		<>
+			<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+			<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+		</>,
+		p,
+	);
+}
+export function IconPlay(p: IconProps) {
+	return svg(<polygon points="6 4 20 12 6 20 6 4" />, p, true);
+}
+export function IconKey(p: IconProps) {
+	return svg(
+		<>
+			<circle cx="8" cy="15" r="4" />
+			<path d="M10.85 12.15 19 4" />
+			<path d="M18 5l2 2" />
+			<path d="M15 8l2 2" />
+		</>,
+		p,
+	);
+}
+export function IconLock(p: IconProps) {
+	return svg(
+		<>
+			<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+			<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+		</>,
+		p,
+	);
+}
+export function IconExternal(p: IconProps) {
+	return svg(
+		<>
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+			<polyline points="15 3 21 3 21 9" />
+			<line x1="10" y1="14" x2="21" y2="3" />
+		</>,
+		p,
+	);
+}
 export function IconCode(p: IconProps) {
 	return svg(
 		<>

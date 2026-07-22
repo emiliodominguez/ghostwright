@@ -2,14 +2,13 @@ import type { TestSettings } from '@ghostwright/dsl';
 import { createSignal, For, onMount, Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { trpc } from '../lib/trpc';
-
-const field = 'w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none transition focus:border-white/30';
-const label = 'mb-1 block text-xs font-medium text-white/45';
+import Panel from './Panel';
+import { IconCheck, IconSettings } from './icons';
+import styles from './panels.module.scss';
 
 /** Editable per-test run configuration (viewport, UA, language, auth, timeouts, retry). */
 export default function TestSettingsPanel(props: { testId: string; initial: TestSettings }) {
 	const [s, setS] = createStore<TestSettings>({ ...props.initial });
-	const [open, setOpen] = createSignal(false);
 	const [busy, setBusy] = createSignal(false);
 	const [saved, setSaved] = createSignal(false);
 	const [logins, setLogins] = createSignal<{ id: string; name: string; captured: boolean }[]>([]);
@@ -47,113 +46,102 @@ export default function TestSettingsPanel(props: { testId: string; initial: Test
 	}
 
 	return (
-		<div class="rounded-xl border border-white/10 bg-white/[0.03]">
-			<button class="flex w-full items-center justify-between px-4 py-3 text-sm text-white/70" onClick={() => setOpen((v) => !v)}>
-				<span class="font-medium">⚙️ Settings</span>
-				<span class="text-white/30">{open() ? '▲' : '▼'}</span>
-			</button>
-			<Show when={open()}>
-				<div class="grid gap-3 border-t border-white/10 p-4 sm:grid-cols-2">
-					<div class="sm:col-span-2">
-						<label class={label}>Browsers (each adds a run)</label>
-						<div class="flex gap-4">
-							{(['chromium', 'firefox', 'webkit'] as const).map((b) => (
-								<label class="flex items-center gap-2 text-sm text-white/70">
-									<input
-										type="checkbox"
-										checked={(s.browsers ?? ['chromium']).includes(b)}
-										onChange={(e) => {
-											const cur = new Set(s.browsers ?? ['chromium']);
-											e.currentTarget.checked ? cur.add(b) : cur.delete(b);
-											setS('browsers', [...cur]);
-										}}
-									/>
-									{b}
-								</label>
-							))}
-						</div>
-					</div>
-					<div>
-						<label class={label}>Screen size</label>
-						<input class={field} value={s.viewport ?? ''} placeholder="1280x720" onInput={(e) => setS('viewport', e.currentTarget.value)} />
-					</div>
-					<div>
-						<label class={label}>Language (locale)</label>
-						<input class={field} value={s.language ?? ''} placeholder="en-US" onInput={(e) => setS('language', e.currentTarget.value)} />
-					</div>
-					<div class="sm:col-span-2">
-						<label class={label}>Log in first with</label>
-						<select class={field} value={s.loginFlowId ?? ''} onChange={(e) => setS('loginFlowId', e.currentTarget.value || undefined)}>
-							<option value="">No login (run as anonymous)</option>
-							<For each={logins()}>
-								{(l) => (
-									<option value={l.id}>
-										{l.name}
-										{l.captured ? ' ✓' : ' (not captured)'}
-									</option>
-								)}
-							</For>
-						</select>
-					</div>
-					<div class="sm:col-span-2">
-						<label class={label}>Custom user agent</label>
-						<input class={field} value={s.userAgent ?? ''} placeholder="MyBot/1.0" onInput={(e) => setS('userAgent', e.currentTarget.value)} />
-					</div>
-					<div>
-						<label class={label}>HTTP auth username</label>
-						<input
-							class={field}
-							value={s.basicAuth?.username ?? ''}
-							onInput={(e) => setS('basicAuth', { username: e.currentTarget.value, password: s.basicAuth?.password ?? '' })}
-						/>
-					</div>
-					<div>
-						<label class={label}>HTTP auth password</label>
-						<input
-							class={field}
-							type="password"
-							value={s.basicAuth?.password ?? ''}
-							onInput={(e) => setS('basicAuth', { username: s.basicAuth?.username ?? '', password: e.currentTarget.value })}
-						/>
-					</div>
-					<div>
-						<label class={label}>Element timeout (ms)</label>
-						<input
-							class={field}
-							type="number"
-							value={s.elementTimeoutMs ?? ''}
-							placeholder="15000"
-							onInput={(e) => setS('elementTimeoutMs', e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
-						/>
-					</div>
-					<div>
-						<label class={label}>Delay between steps (ms)</label>
-						<input
-							class={field}
-							type="number"
-							value={s.stepDelayMs ?? ''}
-							placeholder="0"
-							onInput={(e) => setS('stepDelayMs', e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
-						/>
-					</div>
-					<label class="flex items-center gap-2 text-sm text-white/70">
-						<input type="checkbox" checked={s.failOnJsError ?? false} onChange={(e) => setS('failOnJsError', e.currentTarget.checked)} />
-						Fail on page JS errors
-					</label>
-					<label class="flex items-center gap-2 text-sm text-white/70">
-						<input type="checkbox" checked={s.retry ?? false} onChange={(e) => setS('retry', e.currentTarget.checked)} />
-						Auto-retry once on failure
-					</label>
-					<div class="flex items-center gap-3 sm:col-span-2">
-						<button onClick={save} disabled={busy()} class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-50">
-							{busy() ? 'Saving…' : 'Save settings'}
-						</button>
-						<Show when={saved()}>
-							<span class="text-sm text-emerald-300">Saved ✓</span>
-						</Show>
+		<Panel icon={<IconSettings size={16} />} title="Settings">
+			<div class={styles['grid']}>
+				<div class={styles['col-span-2']}>
+					<label class={styles['label']}>Browsers (each adds a run)</label>
+					<div class={styles['check-row']}>
+						{(['chromium', 'firefox', 'webkit'] as const).map((b) => (
+							<label class={styles['check-label']}>
+								<input
+									type="checkbox"
+									checked={(s.browsers ?? ['chromium']).includes(b)}
+									onChange={(e) => {
+										const cur = new Set(s.browsers ?? ['chromium']);
+										e.currentTarget.checked ? cur.add(b) : cur.delete(b);
+										setS('browsers', [...cur]);
+									}}
+								/>
+								{b}
+							</label>
+						))}
 					</div>
 				</div>
-			</Show>
-		</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>Screen size</label>
+					<input class={styles['input']} value={s.viewport ?? ''} placeholder="1280x720" onInput={(e) => setS('viewport', e.currentTarget.value)} />
+				</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>Language (locale)</label>
+					<input class={styles['input']} value={s.language ?? ''} placeholder="en-US" onInput={(e) => setS('language', e.currentTarget.value)} />
+				</div>
+				<div class={styles['col-span-2']}>
+					<label class={styles['label']}>Log in first with</label>
+					<select class={styles['select']} value={s.loginFlowId ?? ''} onChange={(e) => setS('loginFlowId', e.currentTarget.value || undefined)}>
+						<option value="">No login (run as anonymous)</option>
+						<For each={logins()}>{(l) => <option value={l.id}>{l.name}{l.captured ? ' — captured' : ' (not captured)'}</option>}</For>
+					</select>
+				</div>
+				<div class={styles['col-span-2']}>
+					<label class={styles['label']}>Custom user agent</label>
+					<input class={styles['input']} value={s.userAgent ?? ''} placeholder="MyBot/1.0" onInput={(e) => setS('userAgent', e.currentTarget.value)} />
+				</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>HTTP auth username</label>
+					<input
+						class={styles['input']}
+						value={s.basicAuth?.username ?? ''}
+						onInput={(e) => setS('basicAuth', { username: e.currentTarget.value, password: s.basicAuth?.password ?? '' })}
+					/>
+				</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>HTTP auth password</label>
+					<input
+						class={styles['input']}
+						type="password"
+						value={s.basicAuth?.password ?? ''}
+						onInput={(e) => setS('basicAuth', { username: s.basicAuth?.username ?? '', password: e.currentTarget.value })}
+					/>
+				</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>Element timeout (ms)</label>
+					<input
+						class={styles['input']}
+						type="number"
+						value={s.elementTimeoutMs ?? ''}
+						placeholder="15000"
+						onInput={(e) => setS('elementTimeoutMs', e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
+					/>
+				</div>
+				<div class={styles['field-group']}>
+					<label class={styles['label']}>Delay between steps (ms)</label>
+					<input
+						class={styles['input']}
+						type="number"
+						value={s.stepDelayMs ?? ''}
+						placeholder="0"
+						onInput={(e) => setS('stepDelayMs', e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
+					/>
+				</div>
+				<label class={styles['check-label']}>
+					<input type="checkbox" checked={s.failOnJsError ?? false} onChange={(e) => setS('failOnJsError', e.currentTarget.checked)} />
+					Fail on page JS errors
+				</label>
+				<label class={styles['check-label']}>
+					<input type="checkbox" checked={s.retry ?? false} onChange={(e) => setS('retry', e.currentTarget.checked)} />
+					Auto-retry once on failure
+				</label>
+				<div class={`${styles['actions']} ${styles['col-span-2']}`}>
+					<button type="button" onClick={save} disabled={busy()} class={styles['save-btn']}>
+						{busy() ? 'Saving…' : 'Save settings'}
+					</button>
+					<Show when={saved()}>
+						<span class={styles['saved']}>
+							<IconCheck size={14} /> Saved
+						</span>
+					</Show>
+				</div>
+			</div>
+		</Panel>
 	);
 }

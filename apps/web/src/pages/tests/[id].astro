@@ -20,36 +20,39 @@ const stepLines: string[] = data.version ? await describeExpanded(data.version.d
 ---
 
 <Layout title={data.test.name}>
-	<div class="mb-8 flex items-center justify-between gap-4">
-		<div>
-			<a href="/" class="text-xs text-white/40 hover:text-white/70">← all tests</a>
-			<h1 class="mt-1 text-2xl font-semibold tracking-tight">{data.test.name}</h1>
+	<header class="page-head">
+		<div class="titles">
+			<a href="/" class="back">
+				<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+				</svg>
+				all tests
+			</a>
+			<h1>{data.test.name}</h1>
 		</div>
-		<div class="flex items-center gap-4">
+		<div class="head-actions">
 			<DeleteTest client:load id={data.test.id} name={data.test.name} />
 			<RunNow client:load testId={data.test.id} />
 		</div>
-	</div>
+	</header>
 
-	<section class="mb-8 space-y-3">
+	<section class="panels">
 		<TestSettingsPanel client:load testId={data.test.id} initial={parseSettings(data.test.settings)} />
 		<TestData client:load testId={data.test.id} initialRows={data.test.dataJson ? JSON.parse(data.test.dataJson).length : 0} />
 		<TestAlerts client:load testId={data.test.id} initial={alerts} />
 	</section>
 
-	<section class="mb-10">
-		<h2 class="mb-3 text-sm font-semibold text-white/50">What this test does</h2>
+	<section class="block">
+		<h2 class="section-title">What this test does</h2>
 		{
 			stepLines.length === 0 ? (
-				<p class="text-sm text-white/40">No steps.</p>
+				<p class="muted">No steps.</p>
 			) : (
-				<ol class="space-y-2">
+				<ol class="steps">
 					{stepLines.map((line, i) => (
-						<li class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-							<span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white/60">
-								{i + 1}
-							</span>
-							<span class="pt-0.5 text-sm text-white/85">{line}</span>
+						<li class="step">
+							<span class="step-num">{i + 1}</span>
+							<span class="step-text">{line}</span>
 						</li>
 					))}
 				</ol>
@@ -57,25 +60,22 @@ const stepLines: string[] = data.version ? await describeExpanded(data.version.d
 		}
 	</section>
 
-	<section>
-		<h2 class="mb-3 text-sm font-semibold text-white/50">Recent runs</h2>
+	<section class="block">
+		<h2 class="section-title">Recent runs</h2>
 		{
 			runs.length === 0 ? (
-				<p class="text-sm text-white/40">No runs yet. Hit “Run now” to try it.</p>
+				<p class="muted">No runs yet. Hit “Run now” to try it.</p>
 			) : (
-				<ul class="space-y-2">
+				<ul class="runs">
 					{runs.map((r) => {
 						const s = runStatus(r.status);
 						return (
 							<li>
-								<a
-									href={`/runs/${r.id}`}
-									class="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm transition hover:border-white/25 hover:bg-white/[0.05]"
-								>
-									<span class="text-white/50">
-										{new Date(r.createdAt).toLocaleString()}
+								<a href={`/runs/${r.id}`} class="run-row">
+									<span class="run-time">{new Date(r.createdAt).toLocaleString()}</span>
+									<span class="badge" data-tone={s.tone}>
+										{s.label}
 									</span>
-									<span class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.badge}`}>{s.label}</span>
 								</a>
 							</li>
 						);
@@ -85,3 +85,140 @@ const stepLines: string[] = data.version ? await describeExpanded(data.version.d
 		}
 	</section>
 </Layout>
+
+<style lang="scss">
+	@use '../../styles/abstracts' as *;
+
+	.page-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: space(4);
+		margin-bottom: space(8);
+	}
+
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: space(1);
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+		transition: color $transition-base $ease;
+
+		&:hover {
+			color: var(--text-muted);
+		}
+	}
+
+	.titles h1 {
+		margin-top: space(1.5);
+		font-size: font-size('3xl');
+		font-weight: $weight-semibold;
+		letter-spacing: -0.02em;
+	}
+
+	.head-actions {
+		display: flex;
+		align-items: center;
+		gap: space(4);
+		flex-shrink: 0;
+	}
+
+	.panels {
+		display: flex;
+		flex-direction: column;
+		gap: space(3);
+		margin-bottom: space(8);
+	}
+
+	.block {
+		margin-bottom: space(10);
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	.section-title {
+		margin-bottom: space(3);
+		font-size: font-size('sm');
+		font-weight: $weight-semibold;
+		color: var(--text-subtle);
+	}
+
+	.muted {
+		color: var(--text-subtle);
+		font-size: font-size('base');
+	}
+
+	.steps {
+		display: flex;
+		flex-direction: column;
+		gap: space(2);
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.step {
+		@include card;
+		display: flex;
+		align-items: flex-start;
+		gap: space(3);
+		padding: space(3) space(4);
+	}
+
+	.step-num {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 1.5rem;
+		height: 1.5rem;
+		margin-top: 1px;
+		border-radius: radius('full');
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+		font-size: font-size('xs');
+		font-weight: $weight-medium;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.step-text {
+		padding-top: 2px;
+		font-size: font-size('base');
+		color: var(--text);
+	}
+
+	.runs {
+		display: flex;
+		flex-direction: column;
+		gap: space(2);
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.run-row {
+		@include card;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: space(3);
+		padding: space(3) space(4);
+		transition:
+			border-color $transition-base $ease,
+			background-color $transition-base $ease;
+
+		&:hover {
+			border-color: var(--border-strong);
+			background-color: var(--surface-3);
+		}
+	}
+
+	.run-time {
+		font-size: font-size('base');
+		color: var(--text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+</style>

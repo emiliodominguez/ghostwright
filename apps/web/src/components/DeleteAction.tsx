@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { trpc } from '../lib/trpc';
+import styles from './controls.module.scss';
 
 /** Delete a saved action, then refresh the page so the list updates. */
 export default function DeleteAction(props: { id: string }) {
@@ -16,11 +17,7 @@ export default function DeleteAction(props: { id: string }) {
 	}
 
 	return (
-		<button
-			onClick={remove}
-			disabled={busy()}
-			class="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/50 transition hover:border-red-500/40 hover:text-red-300 disabled:opacity-50"
-		>
+		<button type="button" onClick={remove} disabled={busy()} class={styles['delete-btn']}>
 			{busy() ? 'Deleting…' : 'Delete'}
 		</button>
 	);

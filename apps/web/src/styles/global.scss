@@ -238,3 +238,73 @@ pre {
 body {
 	@include thin-scrollbar;
 }
+
+// -----------------------------------------------------------------------------
+// Shared design-system primitives used across .astro pages (which can't share
+// scoped styles). Kept minimal — component-specific styling lives in modules.
+// -----------------------------------------------------------------------------
+
+.badge {
+	@include badge;
+
+	&[data-tone='success'] {
+		background-color: var(--success-soft);
+		border-color: var(--success-border);
+		color: var(--success-text);
+	}
+	&[data-tone='danger'] {
+		background-color: var(--danger-soft);
+		border-color: var(--danger-border);
+		color: var(--danger-text);
+	}
+	&[data-tone='warning'] {
+		background-color: var(--warning-soft);
+		border-color: var(--warning-border);
+		color: var(--warning-text);
+	}
+	&[data-tone='running'] {
+		background-color: var(--running-soft);
+		border-color: var(--running-border);
+		color: var(--running-text);
+	}
+	&[data-tone='neutral'] {
+		background-color: var(--neutral-soft);
+		color: var(--neutral-text);
+	}
+}
+
+// A small status dot (paired with a label).
+.dot {
+	display: inline-block;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: radius('full');
+	flex-shrink: 0;
+
+	&[data-tone='success'] {
+		background-color: var(--success);
+	}
+	&[data-tone='danger'] {
+		background-color: var(--danger);
+	}
+	&[data-tone='warning'] {
+		background-color: var(--warning);
+	}
+	&[data-tone='running'] {
+		background-color: var(--running);
+		animation: dot-pulse 1.4s $ease infinite;
+	}
+	&[data-tone='neutral'] {
+		background-color: var(--text-faint);
+	}
+}
+
+@keyframes dot-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.35;
+	}
+}
