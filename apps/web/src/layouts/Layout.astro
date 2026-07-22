@@ -93,13 +93,25 @@ function isActive(href: string): boolean {
 	.bar {
 		display: flex;
 		align-items: center;
-		gap: space(3);
+		flex-wrap: wrap;
+		gap: space(2) space(3);
 		max-width: $container-max;
 		margin-inline: auto;
-		padding: space(3) space(6);
+		padding: space(3) space(4);
+
+		@include at('sm') {
+			flex-wrap: nowrap;
+			padding-inline: space(6);
+		}
 
 		&.wide {
 			max-width: $container-wide;
+		}
+	}
+
+	.wordmark {
+		@media (max-width: 379px) {
+			display: none;
 		}
 	}
 
@@ -134,18 +146,26 @@ function isActive(href: string): boolean {
 	.nav {
 		display: flex;
 		align-items: center;
-		gap: space(1.5);
+		gap: space(1);
 		margin-left: auto;
+
+		@include at('sm') {
+			gap: space(1.5);
+		}
 	}
 
 	.nav-link {
-		padding: space(1.5) space(2.5);
+		padding: space(1.5) space(2);
 		border-radius: radius('md');
 		font-size: font-size('xs');
 		color: var(--text-muted);
 		transition:
 			color $transition-base $ease,
 			background-color $transition-base $ease;
+
+		@include at('sm') {
+			padding-inline: space(2.5);
+		}
 
 		&:hover {
 			color: var(--text);
@@ -182,7 +202,11 @@ function isActive(href: string): boolean {
 	.site-main {
 		max-width: $container-max;
 		margin-inline: auto;
-		padding: space(10) space(6);
+		padding: space(8) space(4);
+
+		@include at('sm') {
+			padding: space(10) space(6);
+		}
 
 		&.wide {
 			max-width: $container-wide;

@@ -3,7 +3,7 @@
 .builder {
 	display: flex;
 	flex-direction: column;
-	gap: space(5);
+	gap: space(6);
 }
 
 .field-group {
@@ -99,7 +99,7 @@
 .step-list {
 	display: flex;
 	flex-direction: column;
-	gap: space(2);
+	gap: space(3);
 	list-style: none;
 	padding: 0;
 	margin: 0;
@@ -108,7 +108,7 @@
 
 .step {
 	@include card;
-	padding: space(3);
+	padding: space(4);
 	transition: border-color $transition-base $ease;
 
 	&:hover {
@@ -219,7 +219,7 @@
 .palette {
 	display: grid;
 	grid-template-columns: repeat(2, 1fr);
-	gap: space(2);
+	gap: space(2.5);
 
 	@include at('sm') {
 		grid-template-columns: repeat(3, 1fr);
@@ -231,8 +231,9 @@
 	@include focusable;
 	display: flex;
 	align-items: center;
-	gap: space(2);
-	padding: space(2) space(3);
+	gap: space(2.5);
+	min-height: 3.25rem;
+	padding: space(3) space(3.5);
 	border: 1px solid var(--border);
 	border-radius: radius('lg');
 	background-color: var(--surface-1);
@@ -416,8 +417,12 @@
 
 .strategy-grid {
 	display: grid;
-	grid-template-columns: 10rem 1fr;
+	grid-template-columns: 1fr;
 	gap: space(2);
+
+	@include at('sm') {
+		grid-template-columns: 10rem 1fr;
+	}
 }
 
 .role-grid {
