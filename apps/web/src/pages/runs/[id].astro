@@ -454,19 +454,14 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 	.step {
 		@include card;
 		padding: space(4);
-		border-left: 3px solid var(--border);
 
-		&[data-tone='success'] {
-			border-left-color: var(--success);
-		}
+		// Passing/neutral steps stay calm; only failures get a subtly tinted
+		// border (a full 1px border that follows the corner radius cleanly).
 		&[data-tone='danger'] {
-			border-left-color: var(--danger);
+			border-color: var(--danger-border);
 		}
 		&[data-tone='warning'] {
-			border-left-color: var(--warning);
-		}
-		&[data-tone='neutral'] {
-			border-left-color: var(--border-strong);
+			border-color: var(--warning-border);
 		}
 	}
 
@@ -491,10 +486,7 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		font-weight: $weight-medium;
 		font-variant-numeric: tabular-nums;
 
-		&[data-tone='success'] {
-			background-color: var(--success-soft);
-			color: var(--success-text);
-		}
+		// Neutral by default; only failed steps get a colored badge.
 		&[data-tone='danger'] {
 			background-color: var(--danger-soft);
 			color: var(--danger-text);
@@ -548,9 +540,7 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		border-radius: radius('full');
 		background-color: var(--border-strong);
 
-		&[data-tone='success'] {
-			background-color: var(--success);
-		}
+		// Timing bar stays neutral for passing steps; red flags a failure.
 		&[data-tone='danger'] {
 			background-color: var(--danger);
 		}
