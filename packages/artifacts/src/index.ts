@@ -79,21 +79,26 @@ export interface ArtifactStream {
 	body: ReadableStream;
 	contentType?: string;
 	contentLength?: number;
+	/** Set when a byte range was requested — the `bytes start-end/total` response header. */
+	contentRange?: string;
 }
 
 /**
  * Fetch an object as a web stream — used by the app to proxy artifacts same-origin
- * (so the trace viewer and the trace.zip share an origin and skip CORS).
+ * (so the trace viewer and the trace.zip share an origin and skip CORS). Pass a
+ * `Range` header value to fetch a byte range (enables video seeking).
  *
  * @param key - object key.
+ * @param range - optional HTTP `Range` header value (e.g. `bytes=0-1023`).
  * @returns the object's web stream plus content metadata.
  */
-export async function getObject(key: string): Promise<ArtifactStream> {
-	const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+export async function getObject(key: string, range?: string): Promise<ArtifactStream> {
+	const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: range }));
 	return {
 		body: (res.Body as { transformToWebStream(): ReadableStream }).transformToWebStream(),
 		contentType: res.ContentType,
 		contentLength: res.ContentLength,
+		contentRange: res.ContentRange,
 	};
 }
 
