@@ -18,7 +18,7 @@ function preview(dsl: string): string[] {
 }
 ---
 
-<Layout title="Actions">
+<Layout title="Actions" wide>
 	<PageHeader title="Actions">
 		Reusable groups of steps. Build one here, then drop it into any test from the “Add an action” palette.
 	</PageHeader>
@@ -77,8 +77,10 @@ function preview(dsl: string): string[] {
 		display: grid;
 		gap: space(10);
 
-		@include at('md') {
-			grid-template-columns: 0.85fr 1.15fr;
+		@include at('lg') {
+			grid-template-columns: 22rem minmax(0, 1fr);
+			gap: space(12);
+			align-items: start;
 		}
 	}
 

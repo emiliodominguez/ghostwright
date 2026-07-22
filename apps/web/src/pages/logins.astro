@@ -5,7 +5,7 @@ import StepBuilder from '../components/StepBuilder.tsx';
 import LoginFlows from '../components/LoginFlows.tsx';
 ---
 
-<Layout title="Logins">
+<Layout title="Logins" wide>
 	<PageHeader title="Logins">
 		Build a login flow once, capture its session, then bind it to any test so runs start already signed in. Use <code>{'{{secret.NAME}}'}</code>{' '}
 		for passwords and the <strong>Enter a 2-factor code</strong> step for TOTP. End the flow with a <strong>Check something is visible</strong> step so
@@ -32,8 +32,10 @@ import LoginFlows from '../components/LoginFlows.tsx';
 		display: grid;
 		gap: space(10);
 
-		@include at('md') {
-			grid-template-columns: 0.9fr 1.1fr;
+		@include at('lg') {
+			grid-template-columns: 22rem minmax(0, 1fr);
+			gap: space(12);
+			align-items: start;
 		}
 	}
 

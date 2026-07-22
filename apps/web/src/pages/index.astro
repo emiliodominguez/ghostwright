@@ -6,7 +6,7 @@ import { createCaller } from '../server/routers';
 const tests = await createCaller().tests.list();
 ---
 
-<Layout>
+<Layout wide>
 	<div class="dashboard">
 		<section class="col">
 			<header class="panel-head">
@@ -60,8 +60,10 @@ const tests = await createCaller().tests.list();
 		display: grid;
 		gap: space(10);
 
-		@include at('md') {
-			grid-template-columns: 0.85fr 1.15fr;
+		@include at('lg') {
+			grid-template-columns: 22rem minmax(0, 1fr);
+			gap: space(12);
+			align-items: start;
 		}
 	}
 
