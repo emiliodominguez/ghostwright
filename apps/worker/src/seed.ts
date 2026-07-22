@@ -1,5 +1,6 @@
 import { encrypt } from '@ghostwright/crypto';
 import { db, tables } from '@ghostwright/db';
+import { runQueue } from '@ghostwright/queue';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -55,11 +56,11 @@ async function main(): Promise<void> {
 	const [flow] = await db.insert(tables.loginFlow).values({ projectId, name: 'The Internet — secure area', dsl: JSON.stringify(loginFlow) }).returning();
 
 	const tests = [
-		test('Homepage is up (example.com)', [
-			{ type: 'goto', url: 'https://example.com' },
+		test('Homepage is up (example.org)', [
+			{ type: 'goto', url: 'https://example.org' },
 			{ type: 'assertVisible', locator: { role: 'heading', name: 'Example Domain' } },
 			{ type: 'assertText', locator: { role: 'heading' }, text: 'Example Domain' },
-			{ type: 'assertVisible', locator: { role: 'link', name: 'More information...' } },
+			{ type: 'assertVisible', locator: { role: 'link', name: 'Learn more' } },
 		]),
 		test('Sign in to the secure area (The Internet)', [
 			{ type: 'goto', url: 'https://the-internet.herokuapp.com/login' },
@@ -86,8 +87,8 @@ async function main(): Promise<void> {
 			{ type: 'assertVisible', locator: { css: '#firstHeading' } },
 			{ type: 'assertText', locator: { css: '#firstHeading' }, text: 'Software testing' },
 		]),
-		test('Homepage visual snapshot (example.com)', [
-			{ type: 'goto', url: 'https://example.com' },
+		test('Homepage visual snapshot (example.org)', [
+			{ type: 'goto', url: 'https://example.org' },
 			{ type: 'visualCheck', name: 'homepage', tolerancePct: 1 },
 		]),
 		// Bound to the login flow — starts already signed in, so it can hit /secure directly.
@@ -95,7 +96,8 @@ async function main(): Promise<void> {
 			'Secure area stays accessible (uses saved login)',
 			[
 				{ type: 'goto', url: 'https://the-internet.herokuapp.com/secure' },
-				{ type: 'assertText', locator: { css: '#flash' }, text: 'You logged into a secure area!' },
+				{ type: 'assertText', locator: { css: 'h2' }, text: 'Secure Area' },
+				{ type: 'assertVisible', locator: { css: 'a[href="/logout"]' } },
 			],
 			{ loginFlowId: flow!.id },
 		),
@@ -110,7 +112,13 @@ async function main(): Promise<void> {
 		await db.update(tables.test).set({ currentVersionId: version!.id }).where(eq(tables.test.id, row!.id));
 	}
 
-	console.log(`seeded ${tests.length} tests, 2 secrets, 1 login flow`);
+	// Capture the login flow's session now (best-effort; needs the worker running + network),
+	// so the login-bound test works out of the box instead of failing until captured manually.
+	await runQueue.add('capture', { captureLoginState: flow!.id });
+
+	console.log(`seeded ${tests.length} tests, 2 secrets, 1 login flow (capturing session…)`);
+	// Give the enqueue a moment to flush to Redis before the process exits.
+	await new Promise((r) => setTimeout(r, 500));
 	process.exit(0);
 }
 
