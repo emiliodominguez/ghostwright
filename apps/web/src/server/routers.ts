@@ -129,6 +129,24 @@ export const appRouter = router({
 				return { ok: true };
 			}),
 
+		// Delete a test and everything hanging off it (runs, step results, versions, schedules, baselines).
+		remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+			const versions = await db.select({ id: tables.testVersion.id }).from(tables.testVersion).where(eq(tables.testVersion.testId, input.id));
+			const versionIds = versions.map((v) => v.id);
+			if (versionIds.length) {
+				const runs = await db.select({ id: tables.run.id }).from(tables.run).where(inArray(tables.run.testVersionId, versionIds));
+				const runIds = runs.map((r) => r.id);
+				if (runIds.length) await db.delete(tables.stepResult).where(inArray(tables.stepResult.runId, runIds));
+				await db.delete(tables.run).where(inArray(tables.run.testVersionId, versionIds));
+			}
+			await db.delete(tables.baseline).where(eq(tables.baseline.testId, input.id));
+			await db.delete(tables.schedule).where(eq(tables.schedule.testId, input.id));
+			await db.update(tables.test).set({ currentVersionId: null }).where(eq(tables.test.id, input.id));
+			await db.delete(tables.testVersion).where(eq(tables.testVersion.testId, input.id));
+			await db.delete(tables.test).where(eq(tables.test.id, input.id));
+			return { ok: true };
+		}),
+
 		// Attach data-driven rows from pasted CSV (headers on row 1) or a JSON array; empty clears it.
 		setData: publicProcedure.input(z.object({ id: z.string(), text: z.string() })).mutation(async ({ input }) => {
 			let rows: Record<string, string>[];

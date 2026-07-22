@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import RunNow from '../../components/RunNow.tsx';
+import DeleteTest from '../../components/DeleteTest.tsx';
 import TestSettingsPanel from '../../components/TestSettings.tsx';
 import TestData from '../../components/TestData.tsx';
 import TestAlerts from '../../components/TestAlerts.tsx';
@@ -24,7 +25,10 @@ const stepLines: string[] = data.version ? await describeExpanded(data.version.d
 			<a href="/" class="text-xs text-white/40 hover:text-white/70">← all tests</a>
 			<h1 class="mt-1 text-2xl font-semibold tracking-tight">{data.test.name}</h1>
 		</div>
-		<RunNow client:load testId={data.test.id} />
+		<div class="flex items-center gap-4">
+			<DeleteTest client:load id={data.test.id} name={data.test.name} />
+			<RunNow client:load testId={data.test.id} />
+		</div>
 	</div>
 
 	<section class="mb-8 space-y-3">

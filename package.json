@@ -12,6 +12,7 @@
 		"format": "prettier --write .",
 		"db:generate": "pnpm --filter @ghostwright/db generate",
 		"db:migrate": "pnpm --filter @ghostwright/db migrate",
+		"db:seed": "pnpm --filter @ghostwright/worker seed",
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"infra:down": "docker compose -f infra/docker-compose.yml down",
 		"web": "pnpm --filter @ghostwright/web dev",
