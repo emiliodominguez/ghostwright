@@ -1,5 +1,7 @@
 {
 	"name": "ghostwright",
+	"description": "Self-hosted browser testing and synthetic monitoring, built on Playwright, no-code friendly with an escape hatch to real code.",
+	"license": "MIT",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@11.14.0",
