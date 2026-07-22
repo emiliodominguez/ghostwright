@@ -23,7 +23,9 @@ much larger surface, so the adapter can only map the part that fits.
 - Reading: `textContent`
 - Custom code: run custom code, check with custom code, save a code result (`evaluate`)
 - Assertions checkable in the page: text contains/equals, visible/hidden, present/absent,
-  count, and URL. These retry like Playwright's `expect`.
+  count, and URL. These retry like Playwright's `expect` and honor the per-test element timeout.
+  Text is whitespace-normalized, visibility ignores opacity, and a string URL is matched exactly
+  (a RegExp as a substring), all matching Playwright.
 - Waiting: fixed time, `waitForURL` (polled), `waitForLoadState` (approximated), and element
   `waitFor` (polled visibility)
 - Screenshots: page and full-page

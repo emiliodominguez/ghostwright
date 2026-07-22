@@ -225,7 +225,7 @@ async function runAttempt(
 	let browser: Awaited<ReturnType<typeof engine.launch>> | undefined;
 	let rwSession: RustwrightSession | undefined;
 	try {
-		if (useRw) rwSession = await launchRustwright({ headless: true });
+		if (useRw) rwSession = await launchRustwright({ headless: true, defaultTimeout: settings.elementTimeoutMs });
 		else browser = await engine.launch({ headless: true });
 	} catch (err) {
 		// e.g. the browser binary isn't installed — fail this run cleanly instead of hanging.
@@ -387,7 +387,9 @@ async function runAttempt(
 			runError = `page JS error: ${jsErrors[0]}`;
 		}
 
-		const finalUrl = page.url();
+		// rustwright's synchronous url() can be stale after a click-driven navigation, so read the
+		// live URL from the session; Playwright's page.url() is already live.
+		const finalUrl = useRw && rwSession ? await rwSession.currentUrl() : page.url();
 		let screenshotKey: string | undefined;
 		try {
 			screenshotKey = await putObject(`runs/${runId}/final.png`, await page.screenshot({ fullPage: true }), 'image/png');

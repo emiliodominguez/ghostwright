@@ -29,8 +29,8 @@ Integration nuances that remain:
   way to pick the engine from the dashboard.
 - The results page already tolerates missing trace, video, and HAR (it renders no broken
   links), but it does not tell the viewer which engine produced the run.
-- `failOnJsError` is a no-op on rustwright (there is no page-error hook), and the final URL
-  comes from the adapter's last-known URL rather than a live read.
+- `failOnJsError` is a no-op on rustwright (there is no page-error hook). The final URL is read
+  live from the page at the end of a run, so it is correct even after a click-driven navigation.
 
 ## 2. Engine capabilities rustwright does not have
 
@@ -54,7 +54,10 @@ uses that, so more of the DSL's targeting maps than a pure-CSS engine would allo
 
 - Supported: `css`, `xpath`, visible `text`, field `label`, `testId`, `placeholder`,
   `altText`, and `title`. Text and label are resolved through XPath (rustwright's engine
-  supports XPath), so they work for both actions and assertions.
+  supports XPath), so they work for both actions and assertions. A raw `text=` selector typed
+  into the CSS field is also converted to the same XPath, so it resolves consistently for both
+  actions and assertions (rustwright's native engine handles `text=` for clicks, but the
+  adapter's count and visibility checks go through `document.evaluate`, which does not).
 - Unsupported, throws a clear error: targeting by role or accessible name (rustwright has no
   `role=` engine, and accessible names cannot be expressed in CSS or XPath reliably),
   `aria-ref` selectors, and the which-one (nth) selector.
@@ -83,7 +86,8 @@ These step types throw `EngineUnsupportedError` on rustwright:
   drag and drop, scroll to an element, file uploads, and go back.
 - Element screenshots (used by visual checks).
 
-`reload` is shimmed by navigating to the last known URL rather than a true reload.
+`reload` is shimmed by navigating to the live current URL (read from the page, not a cached
+value) rather than a true reload, so it lands on the right page but does not replay POST state.
 
 ## 5. Behavioral approximations
 
@@ -93,24 +97,32 @@ differences.
 - **Auto-waiting on actions.** Playwright waits for actionability before click and fill. The
   adapter relies on rustwright's own behavior and does not add Playwright-style actionability
   checks, so timing-sensitive interactions may behave differently.
-- **Assertions.** The adapter provides its own retrying `expect` by polling every 100 ms up to
-  a fixed 5 second timeout. It does not honor the per-test element timeout setting.
-- **Visibility.** The visible check is a heuristic (display, visibility, opacity, bounding
-  box). It is not Playwright's full visibility algorithm, so covered or clipped elements may be
-  judged differently.
-- **`waitForLoadState('networkidle')`.** Approximated with a fixed short delay, not real
-  network-idle detection. `load` and `domcontentloaded` rely on `goto`'s `waitUntil`.
+- **Assertions.** The adapter provides its own retrying `expect` by polling every 100 ms. It
+  honors the per-test element timeout setting (`elementTimeoutMs`), falling back to 5 seconds
+  when the test does not set one.
+- **Visibility.** The visible check is a heuristic (display, visibility, bounding box), matching
+  Playwright in ignoring `opacity` (a fully transparent but laid-out element counts as visible).
+  It is not Playwright's full visibility algorithm, so covered or clipped elements may be judged
+  differently.
+- **URL matching.** `toHaveURL` matches a string exactly and a RegExp as a substring, mirroring
+  how the compiler encodes an exact-vs-substring assertion. `waitForURL` matches a string as a
+  Playwright-style glob (`*` within a path segment, `**` across segments), so a plain path needs
+  a `**` prefix to match a full URL, exactly as in Playwright.
+- **`waitForLoadState`.** `load` and `domcontentloaded` poll `document.readyState` to the target
+  state. `networkidle` is approximated with a fixed short delay, not real network-idle detection.
 - **`waitForURL`.** Polled, not event-driven.
 - **`url()`.** The synchronous `url()` returns the last URL known to the adapter, updated on
-  `goto`. After a click that navigates, it can be stale. URL assertions and `waitForURL` read
-  the live `location.href` to avoid this, but any consumer of the synchronous `url()` (for
-  example a final-URL field) can see a stale value.
+  `goto`, `reload`, and `waitForURL`. After a click that navigates it can still be stale, so the
+  run's final URL, URL assertions, and `waitForURL` all read the live `location.href` instead of
+  the cached value.
 - **`evaluate`.** rustwright calls an evaluated string as a function, so the adapter wraps
   expressions as `() => (expr)` to match Playwright's string-as-expression behavior. Argument
   passing is not used, and complex return values are decoded by rustwright, so exotic return
   types may not round-trip exactly.
 - **`textContent`.** Uses rustwright's selector-based `textContent`, which may differ from
-  Playwright's locator `textContent` for trimming or multiple matches.
+  Playwright's locator `textContent` when a selector matches multiple elements. Text assertions
+  (`toHaveText` / `toContainText`) collapse runs of whitespace and trim on both sides before
+  comparing, matching Playwright's text normalization.
 
 ## 6. AI and visual checks
 
@@ -124,7 +136,10 @@ differences.
 
 - It has been run end to end through the real queue, worker, and database, and through compiled
   tests covering css, xpath, text, label, and exact targeting plus custom-code and URL
-  assertions.
+  assertions. The Playwright-parity behaviors (exact `toHaveURL`, glob `waitForURL`, opacity in
+  the visibility check, `text=` on assertions, whitespace-normalized text, the honored element
+  timeout, live-URL reload, and `waitForLoadState` readiness) were verified against a live
+  rustwright browser.
 - It is not yet covered by an automated test in the suite, and there is no test asserting that
   each unsupported step throws.
 - rustwright is alpha (0.1.1). Behavioral parity with Playwright is not proven, so bugs in the

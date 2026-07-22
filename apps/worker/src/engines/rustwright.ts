@@ -44,10 +44,14 @@ function evalExpr(page: RwNativePage, expression: string): Promise<unknown> {
 	return page.evaluate(`() => (${expression})`);
 }
 
+/** Escape a value for embedding inside a double-quoted CSS string, including control chars. */
+function cssString(value: string): string {
+	return value.replace(/[\\"]/g, '\\$&').replace(/[\x00-\x1f\x7f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `);
+}
+
 /** Build a CSS attribute selector, exact or substring. */
 function attr(name: string, value: string, exact?: boolean): string {
-	const v = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-	return `[${name}${exact ? '' : '*'}="${v}"]`;
+	return `[${name}${exact ? '' : '*'}="${cssString(value)}"]`;
 }
 
 /** Whether a selector is an XPath (rustwright accepts both bare `//...` and `xpath=...`). */
@@ -116,6 +120,7 @@ class RwLocator implements StepLocator {
 	constructor(
 		private readonly page: RwNativePage,
 		readonly selector: string,
+		private readonly timeout: number,
 		private readonly why?: string,
 	) {}
 
@@ -153,7 +158,7 @@ class RwLocator implements StepLocator {
 			if (state === 'detached') return s === 'missing';
 			if (state === 'hidden') return s !== 'visible';
 			return s === 'visible';
-		}, opts?.timeout);
+		}, opts?.timeout ?? this.timeout);
 		if (!ok) throw new Error(`Timed out waiting for ${this.selector} to be ${state}`);
 	}
 
@@ -182,13 +187,15 @@ class RwLocator implements StepLocator {
 		throw new EngineUnsupportedError('file uploads');
 	}
 	nth(): StepLocator {
-		return new RwLocator(this.page, this.selector, 'the which-one (nth) selector');
+		return new RwLocator(this.page, this.selector, this.timeout, 'the which-one (nth) selector');
 	}
 }
 
 /** Report the visibility of the first element matching a selector (CSS or XPath). */
 async function visibility(page: RwNativePage, selector: string): Promise<'missing' | 'hidden' | 'visible'> {
-	const expr = `(() => { const el = ${resolveExpr(selector)}; if (!el) return 'missing'; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 0 && r.height > 0) ? 'visible' : 'hidden'; })()`;
+	// Matches Playwright's notion of visibility: laid-out box, not display:none / visibility:hidden.
+	// Opacity is deliberately ignored (a fully transparent but laid-out element is "visible").
+	const expr = `(() => { const el = ${resolveExpr(selector)}; if (!el) return 'missing'; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0) ? 'visible' : 'hidden'; })()`;
 	return (await evalExpr(page, expr)) as 'missing' | 'hidden' | 'visible';
 }
 
@@ -201,13 +208,16 @@ class RwPage implements StepPage {
 		},
 	};
 
-	constructor(private readonly page: RwNativePage) {}
+	constructor(
+		private readonly page: RwNativePage,
+		private readonly timeout: number,
+	) {}
 
 	private unsupported(feature: string): StepLocator {
-		return new RwLocator(this.page, '', feature);
+		return new RwLocator(this.page, '', this.timeout, feature);
 	}
 	private at(selector: string): StepLocator {
-		return new RwLocator(this.page, selector);
+		return new RwLocator(this.page, selector, this.timeout);
 	}
 
 	async goto(url: string, opts?: unknown): Promise<unknown> {
@@ -247,6 +257,14 @@ class RwPage implements StepPage {
 	}
 	locator(selector: string): StepLocator {
 		if (selector.startsWith('aria-ref=')) return this.unsupported('aria-ref selectors (used by the AI step and self-healing)');
+		// Convert Playwright's `text=` engine to XPath so actions and assertions resolve it the
+		// same way (rustwright's native click/fill accept `text=`, but count/visibility go through
+		// document.evaluate, which does not). Quoted text is an exact match, unquoted a substring.
+		if (selector.startsWith('text=')) {
+			const raw = selector.slice(5).trim();
+			const quoted = raw.length >= 2 && ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'")));
+			return this.at(textXpath(quoted ? raw.slice(1, -1) : raw, quoted));
+		}
 		// Both CSS and `xpath=...` resolve natively.
 		return this.at(selector);
 	}
@@ -255,12 +273,20 @@ class RwPage implements StepPage {
 		await sleep(ms);
 	}
 	async waitForURL(url: string | RegExp, opts?: { timeout?: number }): Promise<void> {
-		const ok = await poll(async () => matchUrl(String(await evalExpr(this.page, "location.href")), url), opts?.timeout);
+		const ok = await poll(async () => matchUrlGlob(String(await evalExpr(this.page, 'location.href')), url), opts?.timeout ?? this.timeout);
 		if (!ok) throw new Error(`Timed out waiting for URL to match ${String(url)}`);
+		this.currentUrl = await this.currentHref();
 	}
-	async waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void> {
-		// goto already waits for load / domcontentloaded; approximate networkidle with a short settle.
-		if (state === 'networkidle') await sleep(500);
+	async waitForLoadState(state: 'load' | 'domcontentloaded' | 'networkidle' = 'load'): Promise<void> {
+		// networkidle has no CDP equivalent here; approximate with a short settle.
+		if (state === 'networkidle') {
+			await sleep(500);
+			return;
+		}
+		// Poll document.readyState to the target: 'interactive' for DOMContentLoaded, 'complete' for load.
+		const reached = (rs: string): boolean => (state === 'domcontentloaded' ? rs === 'interactive' || rs === 'complete' : rs === 'complete');
+		const ok = await poll(async () => reached(String(await evalExpr(this.page, 'document.readyState'))), this.timeout);
+		if (!ok) throw new Error(`Timed out waiting for load state ${state}`);
 	}
 	async screenshot(opts?: unknown): Promise<Buffer> {
 		return this.page.screenshot(opts as { fullPage?: boolean; type?: 'png' | 'jpeg' | 'webp' } | undefined);
@@ -272,7 +298,9 @@ class RwPage implements StepPage {
 		throw new EngineUnsupportedError('going back');
 	}
 	async reload(): Promise<unknown> {
-		await this.page.goto(this.currentUrl);
+		// rustwright has no reload primitive; re-navigate to the live URL (not the stale cached one).
+		await this.page.goto(await this.currentHref());
+		this.currentUrl = await this.currentHref();
 		return null;
 	}
 	async evaluate(expression: string): Promise<unknown> {
@@ -280,19 +308,47 @@ class RwPage implements StepPage {
 	}
 }
 
-/** Whether a URL string matches an expected string (substring) or RegExp. */
-function matchUrl(actual: string, expected: string | RegExp): boolean {
-	return typeof expected === 'string' ? actual.includes(expected) : expected.test(actual);
+/**
+ * Whether a URL matches an assertion target. The DSL passes a string only when it wants an
+ * exact full-URL match, and a RegExp for a substring match (see the compiler's assertUrl), so
+ * a string is compared with equality here, never `includes`.
+ */
+function matchUrlExact(actual: string, expected: string | RegExp): boolean {
+	return typeof expected === 'string' ? actual === expected : expected.test(actual);
+}
+
+/** Convert a Playwright-style URL glob (`*` within a path segment, `**` across segments) to a RegExp. */
+function urlGlobToRegExp(glob: string): RegExp {
+	let re = '';
+	for (let i = 0; i < glob.length; i++) {
+		const c = glob[i]!;
+		if (c === '*') {
+			if (glob[i + 1] === '*') {
+				re += '.*';
+				i++;
+			} else {
+				re += '[^/]*';
+			}
+		} else {
+			re += c.replace(/[.+^${}()|[\]\\?]/g, '\\$&');
+		}
+	}
+	return new RegExp(`^${re}$`);
+}
+
+/** Whether a URL matches a `waitForURL` target: a RegExp (substring) or a glob string (Playwright semantics). */
+function matchUrlGlob(actual: string, expected: string | RegExp): boolean {
+	return expected instanceof RegExp ? expected.test(actual) : urlGlobToRegExp(expected).test(actual);
 }
 
 /** Build a retrying `expect`, matching Playwright's auto-waiting matchers over the supported subset. */
-function makeExpect(): StepExpect {
+function makeExpect(timeout: number): StepExpect {
 	const build = (t: StepLocator | StepPage, negate: boolean): StepAssertion => {
 		const loc = t instanceof RwLocator ? t : undefined;
 		const page = t instanceof RwPage ? t : undefined;
 
 		async function check(fn: () => Promise<boolean>, message: string): Promise<void> {
-			const ok = await poll(async () => (negate ? !(await fn()) : await fn()));
+			const ok = await poll(async () => (negate ? !(await fn()) : await fn()), timeout);
 			if (!ok) throw new Error(`${message}${negate ? ' (expected not to)' : ''}`);
 		}
 		const onLoc = <T>(fn: (l: RwLocator) => Promise<T>): (() => Promise<T>) => {
@@ -306,7 +362,7 @@ function makeExpect(): StepExpect {
 			toHaveText: (expected) => check(onLoc(async (l) => textMatches(await l.textContent(), expected, true)), `expected ${loc?.selector} to have text ${String(expected)}`),
 			toContainText: (expected) => check(onLoc(async (l) => textMatches(await l.textContent(), expected, false)), `expected ${loc?.selector} to contain text ${String(expected)}`),
 			toHaveCount: (count) => check(onLoc(async (l) => (await l.count()) === count), `expected ${loc?.selector} to have count ${count}`),
-			toHaveURL: (expected) => check(async () => matchUrl(page ? await page.currentHref() : '', expected), `expected URL to match ${String(expected)}`),
+			toHaveURL: (expected) => check(async () => matchUrlExact(page ? await page.currentHref() : '', expected), `expected URL to match ${String(expected)}`),
 			not: undefined as unknown as StepAssertion['not'],
 		};
 		if (!negate) base.not = build(t, true);
@@ -315,35 +371,46 @@ function makeExpect(): StepExpect {
 	return (t) => build(t, false);
 }
 
+/** Collapse runs of whitespace and trim, as Playwright does before comparing text. */
+function normalizeText(s: string): string {
+	return s.replace(/\s+/g, ' ').trim();
+}
+
 /** Compare text content against an expected string (or RegExp), exact or substring. */
 function textMatches(actual: string | null, expected: string | RegExp, exact: boolean): boolean {
-	const text = (actual ?? '').trim();
+	const text = normalizeText(actual ?? '');
 	if (expected instanceof RegExp) return expected.test(text);
-	return exact ? text === expected : text.includes(expected);
+	const want = normalizeText(expected);
+	return exact ? text === want : text.includes(want);
 }
 
 export interface RustwrightSession {
 	page: StepPage;
 	expect: StepExpect;
-	/** Take a full-page or viewport screenshot as PNG. */
-	screenshot(fullPage?: boolean): Promise<Buffer>;
+	/** The live current URL, read from the page rather than a cached value, for the run's finalUrl. */
+	currentUrl(): Promise<string>;
 	close(): Promise<void>;
 }
+
+/** Default poll timeout for waits and assertions when the test does not set one, matching Playwright's 5s. */
+const DEFAULT_TIMEOUT_MS = 5000;
 
 /**
  * Launch a rustwright Chromium session and return the DSL-shaped page and expect.
  * @param opts.headless - run headless (default true).
- * @returns a session with the StepPage, a retrying expect, screenshot, and close.
+ * @param opts.defaultTimeout - default timeout in ms for waits and assertions (default 5000).
+ * @returns a session with the StepPage, a retrying expect, a live currentUrl, and close.
  * @example const s = await launchRustwright(); await s.page.goto('https://example.org');
  */
-export async function launchRustwright(opts: { headless?: boolean } = {}): Promise<RustwrightSession> {
+export async function launchRustwright(opts: { headless?: boolean; defaultTimeout?: number } = {}): Promise<RustwrightSession> {
+	const timeout = opts.defaultTimeout ?? DEFAULT_TIMEOUT_MS;
 	const browser: RwBrowser = await chromium.launch({ headless: opts.headless ?? true });
 	const native = await browser.newPage();
-	const page = new RwPage(native);
+	const page = new RwPage(native, timeout);
 	return {
 		page,
-		expect: makeExpect(),
-		screenshot: (fullPage) => native.screenshot({ type: 'png', fullPage: Boolean(fullPage) }),
+		expect: makeExpect(timeout),
+		currentUrl: () => page.currentHref(),
 		close: () => browser.close(),
 	};
 }
