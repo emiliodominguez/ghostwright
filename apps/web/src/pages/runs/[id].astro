@@ -219,7 +219,7 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		traceSrc && (
 			<section class="block">
 				<h2 class="section-title">Trace</h2>
-				<p class="trace-hint">Press play (or scrub the timeline) to replay the run frame by frame — each moment shows the page snapshot, network calls and console.</p>
+				<p class="trace-hint">An interactive replay of the run. Once loaded, press play or scrub the timeline to move through each moment frame by frame.</p>
 				<div class="trace-panel">
 					<div class="trace-bar">
 						<span class="trace-name">
@@ -235,38 +235,36 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 							</svg>
 						</a>
 					</div>
-					<iframe data-trace-src={traceSrc} class="trace" title="Playwright trace" />
+					<button type="button" class="trace-facade" data-trace-load>
+						<span class="facade-play">
+							<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+								<polygon points="6 4 20 12 6 20 6 4" />
+							</svg>
+						</span>
+						<span class="facade-title">Load interactive trace</span>
+						<span class="facade-sub">Replay the run frame by frame — DOM snapshots, network &amp; console</span>
+					</button>
+					<iframe data-trace-src={traceSrc} class="trace" title="Playwright trace" hidden />
 				</div>
 			</section>
 		)
 	}
 
 	{
-		/* Load the (heavy, autofocusing) trace viewer only when it scrolls into view,
-		   so entering the page doesn't jump down to it. */
+		/* The trace viewer is heavy and autofocuses on load (which scrolls the page to
+		   it). Load it only on an explicit click, so entering the page never jumps. */
 	}
 	<script is:inline>
 		(function () {
-			var el = document.querySelector('iframe[data-trace-src]');
-			if (!el) return;
-			var load = function () {
-				el.src = el.getAttribute('data-trace-src');
-				el.removeAttribute('data-trace-src');
-			};
-			if ('IntersectionObserver' in window) {
-				var io = new IntersectionObserver(
-					function (entries) {
-						if (entries.some((e) => e.isIntersecting)) {
-							load();
-							io.disconnect();
-						}
-					},
-					{ rootMargin: '250px' },
-				);
-				io.observe(el);
-			} else {
-				load();
-			}
+			var btn = document.querySelector('[data-trace-load]');
+			var frame = document.querySelector('iframe[data-trace-src]');
+			if (!btn || !frame) return;
+			btn.addEventListener('click', function () {
+				frame.src = frame.getAttribute('data-trace-src');
+				frame.removeAttribute('data-trace-src');
+				frame.hidden = false;
+				btn.remove();
+			});
 		})();
 	</script>
 
@@ -770,18 +768,75 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		}
 	}
 
+	// Click-to-load placeholder — the viewer only mounts on demand.
+	.trace-facade {
+		@include button-reset;
+		@include focusable;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: space(2);
+		width: 100%;
+		height: min(52vh, 460px);
+		min-height: 300px;
+		padding: space(6);
+		background-color: var(--bg-subtle);
+		color: var(--text-muted);
+		text-align: center;
+		cursor: pointer;
+		transition: background-color $transition-base $ease;
+
+		&:hover {
+			background-color: var(--surface-3);
+
+			.facade-play {
+				border-color: var(--accent-border);
+				background-color: var(--accent-soft);
+				color: var(--accent-text);
+			}
+		}
+	}
+
+	.facade-play {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 3.25rem;
+		height: 3.25rem;
+		margin-bottom: space(1);
+		border: 1px solid var(--border);
+		border-radius: radius('full');
+		background-color: var(--surface-2);
+		color: var(--text-muted);
+		transition:
+			border-color $transition-base $ease,
+			background-color $transition-base $ease,
+			color $transition-base $ease;
+	}
+
+	.facade-title {
+		font-size: font-size('base');
+		font-weight: $weight-medium;
+		color: var(--text);
+	}
+
+	.facade-sub {
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+	}
+
 	.trace {
 		display: block;
 		width: 100%;
 		height: min(70vh, 720px);
 		min-height: 440px;
 		border: none;
-		// Dark placeholder until the deferred trace viewer loads (it paints white itself).
-		background-color: var(--bg-subtle);
-	}
-
-	// The viewer's own UI is light; give it a white backdrop once it has a source.
-	.trace[src] {
 		background-color: #fff;
+
+		// The class rule above would otherwise override the `hidden` attribute.
+		&[hidden] {
+			display: none;
+		}
 	}
 </style>
