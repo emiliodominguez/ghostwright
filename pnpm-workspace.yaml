@@ -7,3 +7,4 @@ allowBuilds:
   protobufjs: true
   msgpackr-extract: true
   odiff-bin: true
+  '@parcel/watcher': true

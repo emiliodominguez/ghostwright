@@ -1,10 +1,25 @@
 ---
 import '../styles/global.css';
+import '../styles/global.scss';
+import ThemeToggle from '../components/ThemeToggle.tsx';
 
 interface Props {
 	title?: string;
+	wide?: boolean;
 }
-const { title = 'Ghostwright' } = Astro.props;
+const { title = 'Ghostwright', wide = false } = Astro.props;
+const path = Astro.url.pathname;
+
+const nav = [
+	{ href: '/actions', label: 'Actions' },
+	{ href: '/logins', label: 'Logins' },
+	{ href: '/secrets', label: 'Secrets' },
+];
+
+/** Whether a nav item matches the current section. */
+function isActive(href: string): boolean {
+	return path === href || path.startsWith(href + '/');
+}
 ---
 
 <!doctype html>
@@ -13,33 +28,165 @@ const { title = 'Ghostwright' } = Astro.props;
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{title}</title>
+		<script is:inline>
+			(function () {
+				try {
+					var t = localStorage.getItem('gw-theme');
+					if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+					if (t === 'light') document.documentElement.dataset.theme = 'light';
+				} catch (e) {}
+			})();
+		</script>
 	</head>
-	<body class="min-h-screen">
-		<header class="border-b border-white/10">
-			<div class="mx-auto flex max-w-5xl items-center gap-3 px-6 py-4">
-				<a href="/" class="flex items-center gap-2 font-semibold tracking-tight transition hover:opacity-80">
-					<span class="text-lg">👻</span>
-					<span>Ghostwright</span>
+	<body>
+		<header class="site-header">
+			<div class:list={['bar', { wide }]}>
+				<a href="/" class="brand" aria-label="Ghostwright home">
+					<span class="mark">
+						<svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
+							<path
+								fill="var(--accent)"
+								d="M16 3C10.477 3 6 7.477 6 13v13.9c0 .89 1.04 1.37 1.71.79L10 25.8l2.29 2a1.06 1.06 0 0 0 1.42 0L16 25.8l2.29 2a1.06 1.06 0 0 0 1.42 0L22 25.8l2.29 1.89c.67.58 1.71.1 1.71-.79V13c0-5.523-4.477-10-10-10z"
+							></path>
+							<circle cx="12.6" cy="13.4" r="1.55" fill="var(--bg)"></circle>
+							<circle cx="19.4" cy="13.4" r="1.55" fill="var(--bg)"></circle>
+						</svg>
+					</span>
+					<span class="wordmark">Ghostwright</span>
 				</a>
-				<span class="hidden text-xs text-white/40 sm:inline">watch your app, without writing code</span>
-				<nav class="ml-auto flex items-center gap-2">
-					<a href="/actions" class="rounded-lg px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white/90">
-						Actions
-					</a>
-					<a href="/logins" class="rounded-lg px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white/90">
-						Logins
-					</a>
-					<a href="/secrets" class="rounded-lg px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white/90">
-						Secrets
-					</a>
-					<a href="/" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/25 hover:bg-white/[0.05]">
-						+ New test
+				<span class="tagline">watch your app, without writing code</span>
+				<nav class="nav" aria-label="Primary">
+					{
+						nav.map((item) => (
+							<a href={item.href} class:list={['nav-link', { active: isActive(item.href) }]} aria-current={isActive(item.href) ? 'page' : undefined}>
+								{item.label}
+							</a>
+						))
+					}
+					<ThemeToggle client:load />
+					<a href="/" class="cta">
+						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+							<path d="M12 5v14M5 12h14"></path>
+						</svg>
+						<span>New test</span>
 					</a>
 				</nav>
 			</div>
 		</header>
-		<main class="mx-auto max-w-5xl px-6 py-10">
+		<main class:list={['site-main', { wide }]}>
 			<slot />
 		</main>
 	</body>
 </html>
+
+<style lang="scss">
+	@use '../styles/abstracts' as *;
+
+	.site-header {
+		position: sticky;
+		top: 0;
+		z-index: z('header');
+		border-bottom: 1px solid var(--border);
+		background-color: color-mix(in srgb, var(--bg) 82%, transparent);
+		backdrop-filter: blur(12px);
+	}
+
+	.bar {
+		display: flex;
+		align-items: center;
+		gap: space(3);
+		max-width: $container-max;
+		margin-inline: auto;
+		padding: space(3) space(6);
+
+		&.wide {
+			max-width: $container-wide;
+		}
+	}
+
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		font-weight: $weight-semibold;
+		font-size: font-size('md');
+		letter-spacing: -0.01em;
+		transition: opacity $transition-base $ease;
+
+		&:hover {
+			opacity: 0.82;
+		}
+	}
+
+	.mark {
+		display: inline-flex;
+	}
+
+	.tagline {
+		display: none;
+		color: var(--text-subtle);
+		font-size: font-size('xs');
+
+		@include at('sm') {
+			display: inline;
+		}
+	}
+
+	.nav {
+		display: flex;
+		align-items: center;
+		gap: space(1.5);
+		margin-left: auto;
+	}
+
+	.nav-link {
+		padding: space(1.5) space(2.5);
+		border-radius: radius('md');
+		font-size: font-size('xs');
+		color: var(--text-muted);
+		transition:
+			color $transition-base $ease,
+			background-color $transition-base $ease;
+
+		&:hover {
+			color: var(--text);
+			background-color: var(--surface-3);
+		}
+
+		&.active {
+			color: var(--text);
+			background-color: var(--surface-3);
+		}
+	}
+
+	.cta {
+		@include button-base;
+		padding: space(1.5) space(3);
+		border: 1px solid var(--border);
+		background-color: var(--surface-2);
+		font-size: font-size('xs');
+		color: var(--text);
+
+		&:hover {
+			border-color: var(--accent-border);
+			background-color: var(--surface-3);
+			color: var(--text);
+		}
+
+		span {
+			@media (max-width: 400px) {
+				@include sr-only;
+			}
+		}
+	}
+
+	.site-main {
+		max-width: $container-max;
+		margin-inline: auto;
+		padding: space(10) space(6);
+
+		&.wide {
+			max-width: $container-wide;
+		}
+	}
+</style>

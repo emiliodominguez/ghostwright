@@ -1,11 +1,4 @@
+/* Tailwind stays active for sections not yet migrated to the SCSS design system.
+   Theme tokens, base styles and the design system live in `global.scss`, imported
+   after this file so its base rules win on overlap. */
 @import 'tailwindcss';
-
-:root {
-	color-scheme: dark;
-}
-
-body {
-	background-color: #0a0a0b;
-	color: #e7e7ea;
-	font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-}

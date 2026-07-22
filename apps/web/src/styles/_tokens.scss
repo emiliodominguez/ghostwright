@@ -1,0 +1,120 @@
+@use 'sass:map';
+@use 'sass:math';
+
+// -----------------------------------------------------------------------------
+// Design tokens — compile-time scales & helpers.
+// Themeable color values live as CSS custom properties in `global.scss`; the
+// values here are structural (spacing, type, radius, motion) and don't change
+// between light and dark.
+// -----------------------------------------------------------------------------
+
+// Spacing — 4px base grid.
+$space-unit: 0.25rem;
+
+/// Multiple of the 4px base grid.
+/// @param {Number} $n - grid steps (space(4) == 1rem == 16px).
+/// @return {Length}
+@function space($n) {
+	@return $n * $space-unit;
+}
+
+// Type scale.
+$font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
+$font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+
+$font-sizes: (
+	'2xs': 0.6875rem,
+	// 11
+	'xs': 0.75rem,
+	// 12
+	'sm': 0.8125rem,
+	// 13
+	'base': 0.875rem,
+	// 14
+	'md': 0.9375rem,
+	// 15
+	'lg': 1.0625rem,
+	// 17
+	'xl': 1.25rem,
+	// 20
+	'2xl': 1.5rem,
+	// 24
+	'3xl': 1.875rem,
+	// 30
+);
+
+/// Look up a size from the type scale.
+/// @param {String} $key
+/// @return {Length}
+@function font-size($key) {
+	@return map.get($font-sizes, $key);
+}
+
+$weight-normal: 400;
+$weight-medium: 500;
+$weight-semibold: 600;
+$weight-bold: 700;
+
+$leading-tight: 1.2;
+$leading-snug: 1.35;
+$leading-normal: 1.55;
+
+// Radii.
+$radii: (
+	'sm': 0.375rem,
+	'md': 0.5rem,
+	'lg': 0.625rem,
+	'xl': 0.875rem,
+	'2xl': 1.125rem,
+	'full': 999px,
+);
+
+/// Look up a corner radius.
+/// @param {String} $key
+/// @return {Length}
+@function radius($key) {
+	@return map.get($radii, $key);
+}
+
+// Motion.
+$transition-fast: 120ms;
+$transition-base: 160ms;
+$ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+// Layout.
+$container-max: 64rem; // 1024px
+$container-wide: 78rem; // 1248px
+
+// Breakpoints.
+$bp: (
+	'sm': 640px,
+	'md': 768px,
+	'lg': 1024px,
+);
+
+/// Min-width media query for a named breakpoint.
+/// @param {String} $key
+/// @content
+@mixin at($key) {
+	@media (min-width: map.get($bp, $key)) {
+		@content;
+	}
+}
+
+// Elevation (z-index) scale.
+$z: (
+	'base': 1,
+	'sticky': 100,
+	'header': 200,
+	'dropdown': 300,
+	'overlay': 400,
+	'modal': 500,
+	'toast': 600,
+);
+
+/// Look up a z-index layer.
+/// @param {String} $key
+/// @return {Number}
+@function z($key) {
+	@return map.get($z, $key);
+}

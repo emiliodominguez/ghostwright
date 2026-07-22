@@ -13,22 +13,28 @@
 	"dependencies": {
 		"@astrojs/node": "^11.0.2",
 		"@astrojs/solid-js": "^7.0.1",
+		"@codemirror/lang-javascript": "^6.2.5",
+		"@codemirror/language": "^6.12.4",
+		"@codemirror/state": "^6.7.1",
+		"@codemirror/view": "^6.43.6",
 		"@ghostwright/artifacts": "workspace:*",
 		"@ghostwright/crypto": "workspace:*",
 		"@ghostwright/db": "workspace:*",
 		"@ghostwright/dsl": "workspace:*",
 		"@ghostwright/queue": "workspace:*",
+		"@lezer/highlight": "^1.2.3",
 		"@tailwindcss/vite": "^4.3.3",
 		"@trpc/client": "^11.18.0",
 		"@trpc/server": "^11.18.0",
 		"astro": "^7.1.1",
+		"codemirror": "^6.0.2",
 		"drizzle-orm": "^0.45.2",
-		"monaco-editor": "^0.55.1",
 		"solid-js": "^1.9.14",
 		"tailwindcss": "^4.3.3",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"playwright-core": "^1.61.1"
+		"playwright-core": "^1.61.1",
+		"sass": "^1.101.3"
 	}
 }

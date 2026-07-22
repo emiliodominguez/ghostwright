@@ -1,0 +1,4 @@
+// Single import surface for consumers: `@use '../styles/abstracts' as *;`
+// Forwards compile-time tokens and authoring mixins (no CSS output).
+@forward 'tokens';
+@forward 'mixins';

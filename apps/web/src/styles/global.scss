@@ -1,0 +1,221 @@
+@use 'abstracts' as *;
+
+// -----------------------------------------------------------------------------
+// Theme — semantic color tokens as CSS custom properties.
+// Dark is the default (`:root`); light is opt-in via `[data-theme='light']`,
+// toggled at runtime. Every component color references one of these vars, so a
+// single attribute flip re-themes the whole app.
+// -----------------------------------------------------------------------------
+
+:root {
+	// Surfaces
+	--bg: #0a0a0b;
+	--bg-subtle: #0f0f11;
+	--surface-1: rgba(255, 255, 255, 0.03);
+	--surface-2: rgba(255, 255, 255, 0.04);
+	--surface-3: rgba(255, 255, 255, 0.07);
+	--field-bg: rgba(0, 0, 0, 0.25);
+	--overlay: rgba(0, 0, 0, 0.6);
+
+	// Text
+	--text: #e7e7ea;
+	--text-muted: rgba(255, 255, 255, 0.58);
+	--text-subtle: rgba(255, 255, 255, 0.44);
+	--text-faint: rgba(255, 255, 255, 0.3);
+
+	// Borders
+	--border: rgba(255, 255, 255, 0.1);
+	--border-strong: rgba(255, 255, 255, 0.24);
+	--border-subtle: rgba(255, 255, 255, 0.06);
+
+	// Accent (violet) — brand / primary / AI
+	--accent: #8b5cf6;
+	--accent-hover: #7c6bf0;
+	--accent-text: #c4b5fd;
+	--accent-soft: rgba(139, 92, 246, 0.15);
+	--accent-border: rgba(139, 92, 246, 0.32);
+	--accent-contrast: #ffffff;
+
+	// Status — success (emerald)
+	--success: #10b981;
+	--success-text: #6ee7b7;
+	--success-soft: rgba(16, 185, 129, 0.15);
+	--success-border: rgba(16, 185, 129, 0.3);
+
+	// Status — danger (red)
+	--danger: #ef4444;
+	--danger-text: #fca5a5;
+	--danger-soft: rgba(239, 68, 68, 0.14);
+	--danger-border: rgba(239, 68, 68, 0.3);
+
+	// Status — warning (amber)
+	--warning: #f59e0b;
+	--warning-text: #fcd34d;
+	--warning-soft: rgba(245, 158, 11, 0.15);
+	--warning-border: rgba(245, 158, 11, 0.3);
+
+	// Status — running (sky)
+	--running: #0ea5e9;
+	--running-text: #7dd3fc;
+	--running-soft: rgba(14, 165, 233, 0.15);
+	--running-border: rgba(14, 165, 233, 0.3);
+
+	// Status — neutral (queued / idle)
+	--neutral-soft: rgba(255, 255, 255, 0.09);
+	--neutral-text: rgba(255, 255, 255, 0.5);
+
+	// Focus ring
+	--ring: rgba(139, 92, 246, 0.6);
+
+	// Shadows — restrained in dark; border does most of the elevation work.
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+	--shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	// Surfaces
+	--bg: #f6f6f7;
+	--bg-subtle: #efeff1;
+	--surface-1: #ffffff;
+	--surface-2: #ffffff;
+	--surface-3: rgba(15, 15, 20, 0.04);
+	--field-bg: #ffffff;
+	--overlay: rgba(15, 15, 20, 0.45);
+
+	// Text
+	--text: #17171c;
+	--text-muted: rgba(23, 23, 28, 0.62);
+	--text-subtle: rgba(23, 23, 28, 0.48);
+	--text-faint: rgba(23, 23, 28, 0.36);
+
+	// Borders
+	--border: rgba(15, 15, 20, 0.11);
+	--border-strong: rgba(15, 15, 20, 0.24);
+	--border-subtle: rgba(15, 15, 20, 0.07);
+
+	// Accent
+	--accent: #7c3aed;
+	--accent-hover: #6d28d9;
+	--accent-text: #6d28d9;
+	--accent-soft: rgba(124, 58, 237, 0.11);
+	--accent-border: rgba(124, 58, 237, 0.28);
+	--accent-contrast: #ffffff;
+
+	// Status — success
+	--success: #059669;
+	--success-text: #047857;
+	--success-soft: rgba(5, 150, 105, 0.12);
+	--success-border: rgba(5, 150, 105, 0.28);
+
+	// Status — danger
+	--danger: #dc2626;
+	--danger-text: #b91c1c;
+	--danger-soft: rgba(220, 38, 38, 0.1);
+	--danger-border: rgba(220, 38, 38, 0.26);
+
+	// Status — warning
+	--warning: #d97706;
+	--warning-text: #b45309;
+	--warning-soft: rgba(217, 119, 6, 0.13);
+	--warning-border: rgba(217, 119, 6, 0.28);
+
+	// Status — running
+	--running: #0284c7;
+	--running-text: #0369a1;
+	--running-soft: rgba(2, 132, 199, 0.12);
+	--running-border: rgba(2, 132, 199, 0.28);
+
+	// Status — neutral
+	--neutral-soft: rgba(15, 15, 20, 0.06);
+	--neutral-text: rgba(23, 23, 28, 0.55);
+
+	// Focus ring
+	--ring: rgba(124, 58, 237, 0.55);
+
+	// Shadows — visible, soft.
+	--shadow-sm: 0 1px 2px rgba(15, 15, 20, 0.06);
+	--shadow-md: 0 2px 4px rgba(15, 15, 20, 0.06), 0 8px 24px rgba(15, 15, 20, 0.06);
+	--shadow-lg: 0 12px 40px rgba(15, 15, 20, 0.12);
+
+	color-scheme: light;
+}
+
+// -----------------------------------------------------------------------------
+// Base / reset
+// -----------------------------------------------------------------------------
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+body {
+	min-height: 100vh;
+	background-color: var(--bg);
+	color: var(--text);
+	font-family: $font-sans;
+	font-size: font-size('base');
+	line-height: $leading-normal;
+	transition:
+		background-color $transition-base $ease,
+		color $transition-base $ease;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	line-height: $leading-tight;
+	font-weight: $weight-semibold;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+button {
+	font-family: inherit;
+}
+
+input,
+textarea,
+select,
+button {
+	font-family: inherit;
+}
+
+img,
+svg,
+video {
+	display: block;
+	max-width: 100%;
+}
+
+code,
+kbd,
+pre {
+	font-family: $font-mono;
+}
+
+::selection {
+	background-color: var(--accent-soft);
+}
+
+body {
+	@include thin-scrollbar;
+}
