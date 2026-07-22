@@ -53,7 +53,7 @@ async function loadActionSteps(actionId: string) {
 /** Resolve an upload reference to a local path: download http(s) URLs, pass paths through. */
 async function resolveUploadFile(ref: string, workDir: string): Promise<string> {
 	if (!/^https?:\/\//i.test(ref)) return ref;
-	assertUrlAllowed(ref);
+	await assertUrlAllowed(ref);
 	const res = await fetch(ref);
 	if (!res.ok) throw new Error(`upload fetch failed (${res.status}) for ${ref}`);
 	const name = ref.split('/').pop()?.split('?')[0] || 'upload.bin';
@@ -147,7 +147,7 @@ async function executeRunInner(job: RunJob): Promise<string> {
 		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, attempt.runId, storageState);
 	}
 
-	// Finalize the run row exactly once, then fire alerts.
+	// Finalize the run row exactly once — this commits the verdict.
 	await db
 		.update(tables.run)
 		.set({
@@ -160,18 +160,23 @@ async function executeRunInner(job: RunJob): Promise<string> {
 			finishedAt: new Date(),
 		})
 		.where(eq(tables.run.id, attempt.runId));
-	await dispatchAlerts(attempt.runId, testVersionId, attempt.status, attempt.error);
 	recordRun(attempt.status);
 
-	// Best-effort AI triage on failure — never blocks the verdict (already written above).
-	if ((attempt.status === 'failed' || attempt.status === 'errored') && aiEnabled()) {
-		const steps = await db.select().from(tables.stepResult).where(eq(tables.stepResult.runId, attempt.runId)).orderBy(tables.stepResult.idx);
-		const triage = await triageFailure({
-			testName: test?.name ?? 'test',
-			error: attempt.error ?? '',
-			steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, error: s.error })),
-		});
-		if (triage) await db.update(tables.run).set({ triage: JSON.stringify(triage) }).where(eq(tables.run.id, attempt.runId));
+	// Everything below is best-effort and MUST NOT propagate — a throw here would trip the
+	// outer catch and overwrite the just-committed verdict with `errored`.
+	try {
+		await dispatchAlerts(attempt.runId, testVersionId, attempt.status, attempt.error);
+		if ((attempt.status === 'failed' || attempt.status === 'errored') && aiEnabled()) {
+			const steps = await db.select().from(tables.stepResult).where(eq(tables.stepResult.runId, attempt.runId)).orderBy(tables.stepResult.idx);
+			const triage = await triageFailure({
+				testName: test?.name ?? 'test',
+				error: attempt.error ?? '',
+				steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, error: s.error })),
+			});
+			if (triage) await db.update(tables.run).set({ triage: JSON.stringify(triage) }).where(eq(tables.run.id, attempt.runId));
+		}
+	} catch (err) {
+		log.warn({ runId: attempt.runId, err: err instanceof Error ? err.message : String(err) }, 'post-run alerting/triage failed');
 	}
 	return attempt.runId;
 }

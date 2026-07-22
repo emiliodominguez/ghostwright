@@ -25,10 +25,12 @@ export async function expandActions(steps: Step[], load: ActionLoader, depth = 0
 				const expanded = await expandActions(sub, load, depth + 1);
 				// A condition on the actionRef gates the whole action — carry it onto each expanded
 				// step that doesn't already have its own condition (so it isn't silently lost).
+				// Copy each step first so we never mutate the loader's (possibly shared) objects.
 				if (step.condition !== undefined) {
-					for (const s of expanded) if (s.condition === undefined) (s as { condition?: string }).condition = step.condition;
+					for (const s of expanded) out.push(s.condition === undefined ? { ...s, condition: step.condition } : s);
+				} else {
+					out.push(...expanded);
 				}
-				out.push(...expanded);
 			}
 		} else {
 			out.push(step);

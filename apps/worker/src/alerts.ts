@@ -87,7 +87,7 @@ async function pagerDuty(routingKey: string, failed: boolean, dedupBase: string,
 }
 
 async function postJson(url: string, body: unknown): Promise<void> {
-	assertUrlAllowed(url);
+	await assertUrlAllowed(url);
 	const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 	if (!res.ok) throw new Error(`webhook ${res.status}`);
 }

@@ -56,7 +56,8 @@ export function toCode(test: Test): string {
 		.map((s) => {
 			const line = stepToLine(s);
 			// Preserve a per-step condition by wrapping the call, so fromCode(toCode(t)) === t.
-			return s.condition !== undefined && s.condition !== '' ? `only(${JSON.stringify(s.condition)}, () => ${line})` : line;
+			// Match compile()'s rule: a whitespace-only condition is treated as no condition.
+			return s.condition !== undefined && s.condition.trim() !== '' ? `only(${JSON.stringify(s.condition)}, () => ${line})` : line;
 		})
 		.join('\n');
 }
