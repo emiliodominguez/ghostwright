@@ -2,7 +2,7 @@ import { createSignal, For } from 'solid-js';
 import { trpc } from '../lib/trpc';
 import Panel from './Panel';
 import Select from './Select';
-import { IconBell } from './icons';
+import { IconBell, IconTrash } from './icons';
 import styles from './panels.module.scss';
 
 type Alert = { id: string; channel: string; trigger: string; target: string };
@@ -40,8 +40,8 @@ export default function TestAlerts(props: { testId: string; initial: Alert[] }) 
 							<span>
 								<strong>{a.channel}</strong> <span class={styles['muted']}>({a.trigger})</span> → <span class={styles['value']}>{a.target}</span>
 							</span>
-							<button type="button" class={styles['remove-btn']} onClick={() => remove(a.id)}>
-								remove
+							<button type="button" title="Remove alert" aria-label="Remove alert" class={`${styles['icon-btn']} ${styles['danger']}`} onClick={() => remove(a.id)}>
+								<IconTrash size={15} />
 							</button>
 						</div>
 					)}

@@ -41,5 +41,5 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
 	const supplied = context.cookies.get('gw_token')?.value || context.request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
 	if (supplied && safeEqual(supplied, required)) return next();
-	return new Response('Unauthorized — append ?token=<GHOSTWRIGHT_ACCESS_TOKEN> to the URL once to unlock.', { status: 401 });
+	return new Response('Unauthorized. Append ?token=<GHOSTWRIGHT_ACCESS_TOKEN> to the URL once to unlock.', { status: 401 });
 });

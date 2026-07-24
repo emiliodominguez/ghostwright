@@ -22,9 +22,9 @@ export function runStatus(status: string): { label: string; tone: Tone } {
 }
 
 const STEP: Record<string, { label: string; tone: Tone }> = {
-	passed: { label: 'passed', tone: 'success' },
-	failed: { label: 'failed', tone: 'danger' },
-	skipped: { label: 'skipped', tone: 'neutral' },
+	passed: { label: 'Passed', tone: 'success' },
+	failed: { label: 'Failed', tone: 'danger' },
+	skipped: { label: 'Skipped', tone: 'neutral' },
 };
 
 /**
@@ -35,4 +35,17 @@ const STEP: Record<string, { label: string; tone: Tone }> = {
  */
 export function stepStatus(status: string): { label: string; tone: Tone } {
 	return STEP[status] ?? { label: status, tone: 'neutral' };
+}
+
+/**
+ * Strip ANSI color escape codes from a string. Playwright bakes them into its
+ * error "Call log", which renders as `␛[2m` garbage in the browser. Worker-side
+ * redaction now removes these, but this also cleans errors already persisted.
+ *
+ * @param s - the raw error string (or undefined).
+ * @returns the string without ANSI codes, or undefined if none was given.
+ */
+export function stripAnsi(s: string | undefined): string | undefined {
+	// eslint-disable-next-line no-control-regex
+	return s?.replace(/\x1b\[[0-9;]*m/g, '');
 }

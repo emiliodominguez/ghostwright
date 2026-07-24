@@ -51,7 +51,10 @@
 
 .menu {
 	position: fixed;
-	z-index: z('dropdown');
+	// Portalled to <body>, so it must sit above a modal too (the Select is used inside
+	// the step/test/login editor modals). `dropdown` (below `modal`) rendered it behind
+	// the backdrop — invisible. `popover` is the layer reserved for exactly this.
+	z-index: z('popover');
 	max-height: 15rem;
 	overflow-y: auto;
 	padding: space(1);

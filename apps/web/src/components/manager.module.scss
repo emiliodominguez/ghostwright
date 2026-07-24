@@ -2,6 +2,102 @@
 
 // Shared styling for the list + add-form managers (Secrets, Login flows).
 
+// ── Logins page layout ────────────────────────────────────────────────────
+.split {
+	display: grid;
+	gap: space(10);
+
+	@include at('lg') {
+		// Matches the home dashboard's list column, so every list-left / builder-right
+		// page (Home, Logins, Secrets, Actions) shares the same layout proportions.
+		grid-template-columns: 30rem minmax(0, 1fr);
+		gap: space(12);
+		align-items: start;
+	}
+}
+
+.col-title {
+	margin-bottom: space(4);
+	font-size: font-size('sm');
+	font-weight: $weight-semibold;
+	color: var(--text-subtle);
+}
+
+.col-sub {
+	margin: space(-3) 0 space(5);
+	font-size: font-size('base');
+	color: var(--text-subtle);
+}
+
+// The login-flow editor opens in a modal so it gets full width to lay out its
+// step controls without shifting the page beneath it.
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: z('modal');
+	display: flex;
+	// Center the modal; it caps itself at 90dvh and scrolls internally, so the
+	// backdrop itself never needs to scroll.
+	align-items: center;
+	justify-content: center;
+	padding: space(6) space(4);
+	background-color: rgba(0, 0, 0, 0.55);
+	animation: backdrop-in $transition-fast $ease;
+}
+
+.modal {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	max-width: 56rem;
+	// Cap the height so the modal never runs off-screen; the body scrolls inside it
+	// while the header and the builder's footer actions stay pinned and visible.
+	max-height: 90dvh;
+	margin: auto;
+	border: 1px solid var(--border);
+	border-radius: radius('xl');
+	background-color: var(--bg);
+	box-shadow: var(--shadow-lg);
+	animation: modal-in $transition-base $ease;
+	overflow: hidden; // let .modal-body own the scrolling, keep the rounded corners clean
+}
+
+.modal-head {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(3);
+	padding: space(4) space(5);
+	border-bottom: 1px solid var(--border);
+}
+
+.modal-body {
+	flex: 1 1 auto;
+	min-height: 0; // allow the flex child to shrink so overflow-y actually scrolls
+	overflow-y: auto;
+	padding: space(5);
+	@include thin-scrollbar;
+}
+
+.editor-title {
+	font-size: font-size('md');
+	font-weight: $weight-semibold;
+}
+
+@keyframes backdrop-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes modal-in {
+	from {
+		opacity: 0;
+		transform: translateY(space(2));
+	}
+}
+
 .stack {
 	display: flex;
 	flex-direction: column;
@@ -27,6 +123,57 @@
 	padding: space(4);
 }
 
+// A secret: a header (icon + name, delete at the trailing edge) over a "Use as"
+// hint on its own line, so the reference snippet has room instead of colliding
+// with the name on a single cramped row.
+.secret {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+}
+
+.secret-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(3);
+}
+
+.secret-use {
+	margin: 0;
+	font-size: font-size('xs');
+	color: var(--text-faint);
+
+	code {
+		padding: 1px space(1.5);
+		border-radius: radius('sm');
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: 0.92em;
+		overflow-wrap: anywhere;
+	}
+}
+
+// The login-flow card stacks a header, a status line, and an action row, so it
+// gets more generous padding and vertical rhythm than the dense single-row items
+// (e.g. secrets). Scoped to `.flow` so those stay compact.
+.flow {
+	padding: space(5);
+
+	.item-head {
+		margin-bottom: space(3);
+	}
+
+	.status {
+		margin-bottom: space(3);
+	}
+
+	.action-row {
+		margin-top: space(2);
+	}
+}
+
 .item-row {
 	display: flex;
 	align-items: center;
@@ -50,18 +197,6 @@
 	}
 }
 
-.item-note {
-	color: var(--text-faint);
-
-	code {
-		padding: 1px space(1);
-		border-radius: radius('sm');
-		background-color: var(--surface-3);
-		color: var(--text-muted);
-		font-size: 0.92em;
-	}
-}
-
 .item-meta {
 	display: flex;
 	align-items: center;
@@ -80,19 +215,55 @@
 	}
 }
 
+// Compact icon button for row actions (edit, delete, cancel).
+.icon-btn {
+	@include icon-button;
+}
+
 .preview {
 	display: flex;
 	flex-direction: column;
-	gap: space(1);
-	padding-left: space(1);
+	gap: space(1.5);
+	// Separate the expanded step list from the actions above it.
+	margin-top: space(4);
+	padding: space(4) 0 0 space(1);
+	border-top: 1px solid var(--border);
 	list-style: none;
-	margin: 0;
 	font-size: font-size('xs');
+	line-height: 1.5;
 	color: var(--text-muted);
 
 	.idx {
+		margin-right: space(0.5);
 		color: var(--text-faint);
+		font-variant-numeric: tabular-nums;
 	}
+}
+
+// Action row under the status: the capture button plus a steps toggle.
+.action-row {
+	display: flex;
+	align-items: center;
+	gap: space(3);
+	margin-top: space(1);
+}
+
+.text-toggle {
+	@include button-reset;
+	@include focusable;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text);
+	}
+}
+
+.edit-note {
+	margin: 0 0 space(3);
+	font-size: font-size('xs');
+	color: var(--text-subtle);
 }
 
 .status {
@@ -107,6 +278,164 @@
 	}
 	&.warn {
 		color: var(--warning-text);
+	}
+}
+
+// ── Recent captures (login flow history) ─────────────────────────────────────
+.captures {
+	margin-top: space(4);
+	padding-top: space(3);
+	border-top: 1px solid var(--border);
+}
+
+.captures-title {
+	display: block;
+	margin-bottom: space(2);
+	font-size: font-size('2xs');
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-faint);
+}
+
+.capture-list {
+	display: flex;
+	flex-direction: column;
+	gap: space(1);
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+// Row wrapper: the capture link fills, its delete control sits at the end and is
+// revealed on hover (mirrors the test-run rows).
+.capture-item {
+	display: flex;
+	align-items: center;
+	gap: space(1);
+
+	&:hover .capture-delete,
+	&:hover .capture-confirm,
+	&:focus-within .capture-delete,
+	&:focus-within .capture-confirm {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+.capture-row {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(3);
+	padding: space(2) space(2.5);
+	border-radius: radius('md');
+	font-size: font-size('xs');
+	color: var(--text-muted);
+	transition: background-color $transition-base $ease;
+
+	&:hover {
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+}
+
+.capture-when {
+	font-variant-numeric: tabular-nums;
+}
+
+// The status pill sits at the trailing edge, after the delete control.
+.capture-badge {
+	order: 1;
+	flex-shrink: 0;
+}
+
+// Per-row capture delete: quiet icon, red on hover, hidden until the row is engaged.
+.capture-delete {
+	@include button-reset;
+	@include focusable;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 1.75rem;
+	height: 1.75rem;
+	border-radius: radius('md');
+	color: var(--text-faint);
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		color $transition-base $ease,
+		background-color $transition-base $ease,
+		opacity $transition-base $ease;
+
+	&:hover {
+		color: var(--danger-text);
+		background-color: var(--danger-soft);
+	}
+}
+
+.capture-confirm {
+	display: inline-flex;
+	align-items: center;
+	gap: space(2);
+	flex-shrink: 0;
+	font-size: font-size('xs');
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity $transition-base $ease;
+}
+
+.confirm-yes {
+	@include button-reset;
+	padding: space(1) space(2.5);
+	border-radius: radius('md');
+	background-color: var(--danger);
+	color: #fff;
+	font-weight: $weight-medium;
+	transition: background-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--danger) 88%, black);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.cancel {
+	@include button-reset;
+	color: var(--text-subtle);
+	transition: color $transition-base $ease;
+
+	&:hover {
+		color: var(--text-muted);
+	}
+}
+
+// Small pulsing dot next to an in-progress capture's badge.
+.dot {
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: space(1.5);
+	border-radius: radius('full');
+	background-color: currentColor;
+	animation: capture-pulse 1.2s ease-in-out infinite;
+
+	&[data-tone='running'] {
+		color: var(--running-text);
+	}
+	&[data-tone='neutral'] {
+		color: var(--text-subtle);
+	}
+}
+
+@keyframes capture-pulse {
+	50% {
+		opacity: 0.35;
 	}
 }
 
@@ -152,14 +481,18 @@
 .capture-btn {
 	@include button-base;
 	padding: space(1) space(3);
-	border: 1px solid transparent;
-	background-color: var(--success);
-	color: #052e1a;
+	border: 1px solid var(--success-border);
+	background-color: var(--success-soft);
+	color: var(--success-text);
 	font-size: font-size('xs');
 	font-weight: $weight-medium;
 
 	&:hover:not(:disabled) {
-		background-color: color-mix(in srgb, var(--success) 85%, white);
+		background-color: color-mix(in srgb, var(--success-soft) 60%, var(--success-border));
+	}
+
+	&:disabled {
+		opacity: 0.6;
 	}
 }
 

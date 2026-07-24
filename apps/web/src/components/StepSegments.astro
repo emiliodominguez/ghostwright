@@ -1,0 +1,60 @@
+---
+import type { DescSegment } from '@ghostwright/dsl';
+
+// Render a step's description segments as styled inline spans (server-side).
+// Mirrors the SolidJS StepText component so the read-only test/run pages and the
+// live builder highlight step parts identically.
+interface Props {
+	segments: DescSegment[];
+}
+
+const { segments } = Astro.props;
+
+/** A space precedes every segment except the first and a bare comma. */
+function spaceBefore(i: number): boolean {
+	return i !== 0 && segments[i]?.text !== ',';
+}
+---
+
+<span class="step-line">
+	{
+		segments.map((seg, i) => (
+			<>
+				{spaceBefore(i) ? ' ' : ''}
+				{seg.kind === 'text' ? seg.text : <span class={`seg-${seg.kind}`}>{seg.text}</span>}
+			</>
+		))
+	}
+</span>
+
+<style lang="scss">
+	@use '../styles/abstracts' as *;
+
+	.step-line {
+		color: inherit;
+	}
+
+	.seg-value {
+		color: var(--text);
+		font-weight: $weight-medium;
+	}
+
+	.seg-code,
+	.seg-url {
+		color: var(--accent-text);
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+		word-break: break-all;
+	}
+
+	.seg-code {
+		padding: 1px space(1.5);
+		border-radius: radius('sm');
+		background-color: var(--surface-3);
+	}
+
+	.seg-nth {
+		color: var(--text-faint);
+		font-size: 0.9em;
+	}
+</style>

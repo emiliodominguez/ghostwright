@@ -1,0 +1,99 @@
+@use '../styles/abstracts' as *;
+
+// A compact single-field prompt dialog (in-app replacement for window.prompt).
+
+.backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: z('modal');
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding: space(6) space(4);
+	background-color: var(--overlay);
+	backdrop-filter: blur(2px);
+	overflow-y: auto;
+}
+
+.modal {
+	width: 100%;
+	max-width: 26rem;
+	margin-top: 12vh;
+	padding: space(5);
+	border: 1px solid var(--border-strong);
+	border-radius: radius('xl');
+	background-color: var(--bg-subtle);
+	box-shadow: var(--shadow-lg);
+	animation: prompt-in $transition-base $ease;
+}
+
+@keyframes prompt-in {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+}
+
+.head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: space(3);
+	margin-bottom: space(4);
+}
+
+.title {
+	font-size: font-size('md');
+	font-weight: $weight-semibold;
+	letter-spacing: -0.01em;
+}
+
+.close {
+	@include icon-button;
+}
+
+.label {
+	display: block;
+	margin-bottom: space(1.5);
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+}
+
+.input {
+	@include field;
+	width: 100%;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: space(2);
+	margin-top: space(5);
+}
+
+.cancel {
+	@include button-base;
+	padding: space(2) space(3.5);
+	border: 1px solid var(--border);
+	background-color: transparent;
+	color: var(--text-muted);
+	font-size: font-size('sm');
+
+	&:hover {
+		border-color: var(--border-strong);
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+}
+
+.confirm {
+	@include button-primary;
+	padding: space(2) space(4);
+	font-size: font-size('sm');
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+}

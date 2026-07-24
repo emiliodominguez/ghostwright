@@ -55,8 +55,30 @@ export function IconTrash(p: IconProps) {
 		p,
 	);
 }
+export function IconPencil(p: IconProps) {
+	return svg(
+		<>
+			<path d="M12 20h9" />
+			<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+		</>,
+		p,
+	);
+}
 export function IconPlus(p: IconProps) {
 	return svg(<path d="M12 5v14M5 12h14" />, p);
+}
+export function IconMore(p: IconProps) {
+	return svg(
+		<>
+			<circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+			<circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+			<circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+		</>,
+		p,
+	);
+}
+export function IconFolder(p: IconProps) {
+	return svg(<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />, p);
 }
 export function IconStar(p: IconProps) {
 	return svg(<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />, p);

@@ -1,7 +1,7 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
-import { CopyObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -61,6 +61,34 @@ export async function uploadFile(key: string, filePath: string, contentType: str
  */
 export async function copyObject(srcKey: string, destKey: string): Promise<void> {
 	await s3.send(new CopyObjectCommand({ Bucket: bucket, Key: destKey, CopySource: `${bucket}/${srcKey}` }));
+}
+
+/**
+ * Delete every object under a key prefix. Used to clear a run's per-step objects
+ * before a retry reuses the same run id, so a shorter passing attempt can't leave
+ * screenshots from a longer earlier attempt orphaned in the store.
+ *
+ * @param prefix - the key prefix to clear, e.g. `runs/<id>/steps/`.
+ * @returns the number of objects deleted.
+ */
+export async function deletePrefix(prefix: string): Promise<number> {
+	let deleted = 0;
+	let continuationToken: string | undefined;
+
+	do {
+		const listed = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken }));
+		const keys = (listed.Contents ?? []).map((o) => o.Key).filter((k): k is string => Boolean(k));
+
+		if (keys.length > 0) {
+			// DeleteObjects takes at most 1000 keys per call; a page is already <=1000.
+			await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true } }));
+			deleted += keys.length;
+		}
+
+		continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+	} while (continuationToken);
+
+	return deleted;
 }
 
 /**

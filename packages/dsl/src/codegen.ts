@@ -205,7 +205,6 @@ export function fromCode(code: string): Test {
 	};
 
 	const bind = `const { ${BUILDER_KEYS.join(', ')} } = __t;\n`;
-	// eslint-disable-next-line @typescript-eslint/no-implied-eval
 	new Function('__t', bind + code)(builder);
 	return testSchema.parse({ steps });
 }

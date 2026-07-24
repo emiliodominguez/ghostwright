@@ -28,8 +28,12 @@ export interface ByTextOpts {
 	exact?: boolean;
 }
 
-export interface StepPage {
-	goto(url: string, opts?: unknown): Promise<unknown>;
+/**
+ * The locator-producing subset shared by Playwright's Page and FrameLocator.
+ * A `frame` on a DSL locator resolves against one of these (via `page.frameLocator`)
+ * instead of the page, so steps can reach into an embedded iframe.
+ */
+export interface StepLocatorRoot {
 	getByRole(role: string, opts?: { name?: string; exact?: boolean }): StepLocator;
 	getByText(text: string, opts?: ByTextOpts): StepLocator;
 	getByPlaceholder(text: string, opts?: ByTextOpts): StepLocator;
@@ -38,6 +42,11 @@ export interface StepPage {
 	getByAltText(text: string, opts?: ByTextOpts): StepLocator;
 	getByTitle(text: string, opts?: ByTextOpts): StepLocator;
 	locator(selector: string): StepLocator;
+}
+
+export interface StepPage extends StepLocatorRoot {
+	goto(url: string, opts?: unknown): Promise<unknown>;
+	frameLocator(selector: string): StepLocatorRoot;
 	waitForTimeout(ms: number): Promise<void>;
 	waitForURL(url: string | RegExp, opts?: unknown): Promise<void>;
 	waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle'): Promise<void>;

@@ -109,6 +109,9 @@ $z: (
 	'dropdown': 300,
 	'overlay': 400,
 	'modal': 500,
+	// Popovers/menus portaled to <body> that must sit above a modal (e.g. the
+	// "Add step" chooser opened from inside the editor modal).
+	'popover': 550,
 	'toast': 600,
 );
 

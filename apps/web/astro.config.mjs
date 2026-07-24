@@ -10,5 +10,5 @@ export default defineConfig({
 		// Keep server-only workspace packages out of the client/SSR bundle transform.
 		ssr: { noExternal: ['@ghostwright/db', '@ghostwright/artifacts', '@ghostwright/queue', '@ghostwright/dsl'] },
 	},
-	server: { port: 4321, host: true },
+	server: { port: parseInt(process.env.WEB_PORT || '4321'), host: true },
 });

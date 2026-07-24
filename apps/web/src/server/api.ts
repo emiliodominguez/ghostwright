@@ -1,6 +1,7 @@
 import { db, tables } from '@ghostwright/db';
 import { runQueue, type RunJob } from '@ghostwright/queue';
 import { eq } from 'drizzle-orm';
+import { stripAnsi } from '../lib/status';
 
 /**
  * Authenticate a REST request by API key (`?apiKey=` or `Authorization: Bearer`).
@@ -39,10 +40,10 @@ export async function resultJson(runId: string) {
 		status: run.status,
 		screenshotPassing: !screenshotFailing,
 		screenshotFailing,
-		error: run.error,
+		error: stripAnsi(run.error ?? undefined),
 		startedAt: run.startedAt,
 		finishedAt: run.finishedAt,
-		steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, durationMs: s.durationMs, diffPct: s.diffPct, error: s.error })),
+		steps: steps.map((s) => ({ idx: s.idx, type: s.type, status: s.status, durationMs: s.durationMs, diffPct: s.diffPct, error: stripAnsi(s.error ?? undefined) })),
 	};
 }
 

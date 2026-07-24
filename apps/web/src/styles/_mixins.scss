@@ -91,6 +91,38 @@
 	cursor: pointer;
 }
 
+/// Compact square icon button for row/step actions (edit, delete, move, cancel).
+/// Add `&.danger:hover` styling via the `is-danger` argument for destructive actions.
+@mixin icon-button {
+	@include button-reset;
+	@include focusable;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: space(1);
+	border-radius: radius('sm');
+	// Subtle, not faint — icon buttons must stay legible at rest (they brighten on hover).
+	color: var(--text-subtle);
+	transition:
+		color $transition-base $ease,
+		background-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+	}
+
+	&:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+
+	&.danger:hover {
+		background-color: var(--danger-soft);
+		color: var(--danger-text);
+	}
+}
+
 /// Base button geometry shared by all variants.
 @mixin button-base {
 	@include button-reset;
@@ -166,10 +198,11 @@
 	padding: space(1) space(2);
 	border-radius: radius('full');
 	border: 1px solid transparent;
-	font-size: font-size('2xs');
+	font-size: 0.625rem;
 	font-weight: $weight-medium;
 	line-height: 1;
-	letter-spacing: 0.01em;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
 }
 
 /// Single-line ellipsis truncation.

@@ -1,8 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
-import StepBuilder from '../components/StepBuilder.tsx';
-import LoginFlows from '../components/LoginFlows.tsx';
+import LoginsManager from '../components/LoginsManager.tsx';
 ---
 
 <Layout title="Logins" wide>
@@ -12,43 +11,5 @@ import LoginFlows from '../components/LoginFlows.tsx';
 		a failed login is caught.
 	</PageHeader>
 
-	<div class="split">
-		<section>
-			<h2 class="col-title">Your login flows</h2>
-			<LoginFlows client:only="solid-js" />
-		</section>
-		<section>
-			<h2 class="col-title">Build a login flow</h2>
-			<p class="col-sub">Go to the login page, type credentials, sign in, and check you’re in.</p>
-			<StepBuilder client:only="solid-js" mode="login" />
-		</section>
-	</div>
+	<LoginsManager client:only="solid-js" />
 </Layout>
-
-<style lang="scss">
-	@use '../styles/abstracts' as *;
-
-	.split {
-		display: grid;
-		gap: space(10);
-
-		@include at('lg') {
-			grid-template-columns: 22rem minmax(0, 1fr);
-			gap: space(12);
-			align-items: start;
-		}
-	}
-
-	.col-title {
-		margin-bottom: space(4);
-		font-size: font-size('sm');
-		font-weight: $weight-semibold;
-		color: var(--text-subtle);
-	}
-
-	.col-sub {
-		margin: space(-3) 0 space(5);
-		font-size: font-size('base');
-		color: var(--text-subtle);
-	}
-</style>

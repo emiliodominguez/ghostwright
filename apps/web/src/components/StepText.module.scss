@@ -1,0 +1,41 @@
+@use '../styles/abstracts' as *;
+
+// A step description as a run of inline segments. Plain prose inherits the
+// surrounding color; the tagged pieces below stand out so a long step is easy
+// to scan.
+.line {
+	color: inherit;
+}
+
+// User-supplied string values (what to type, a heading's text, a variable name).
+// Slightly brighter and medium-weight so the "what" of the step pops.
+.value {
+	color: var(--text);
+	font-weight: $weight-medium;
+}
+
+// Selectors / code fragments (CSS, XPath, key names). Monospace on a subtle chip;
+// the source no longer includes backticks, so none show here.
+.code {
+	padding: 1px space(1.5);
+	border-radius: radius('sm');
+	background-color: var(--surface-3);
+	color: var(--accent-text);
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	word-break: break-all;
+}
+
+// Web addresses.
+.url {
+	color: var(--accent-text);
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	word-break: break-all;
+}
+
+// Disambiguators like "(#2)" or "(in the embedded frame)" — de-emphasized.
+.nth {
+	color: var(--text-faint);
+	font-size: 0.9em;
+}

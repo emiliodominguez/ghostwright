@@ -1,5 +1,5 @@
 import { db, tables } from '@ghostwright/db';
-import { createLogger } from '@ghostwright/otel/logger';
+import { createLogger } from '@ghostwright/logger';
 import { and, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { assertUrlAllowed } from './net-guard';
 
@@ -48,7 +48,7 @@ export async function dispatchAlerts(runId: string, testVersionId: string, statu
 	const changed = prev !== undefined && prev !== status;
 
 	const emoji = failed ? '❌' : '✅';
-	const text = `${emoji} Ghostwright: test "${test.name}" ${status}${error ? ` — ${error.split('\n')[0]}` : ''}`;
+	const text = `${emoji} Ghostwright: test "${test.name}" ${status}${error ? `: ${error.split('\n')[0]}` : ''}`;
 	const dashUrl = `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:4321'}/runs/${runId}`;
 
 	await Promise.all(
@@ -82,7 +82,7 @@ async function pagerDuty(routingKey: string, failed: boolean, dedupBase: string,
 		routing_key: routingKey,
 		event_action: failed ? 'trigger' : 'resolve',
 		dedup_key: `ghostwright-${dedupBase}`,
-		payload: { summary: `Ghostwright: ${testName} ${failed ? 'failed' : 'recovered'}${error ? ` — ${error.split('\n')[0]}` : ''}`, source: url, severity: 'error' },
+		payload: { summary: `Ghostwright: ${testName} ${failed ? 'failed' : 'recovered'}${error ? `: ${error.split('\n')[0]}` : ''}`, source: url, severity: 'error' },
 	});
 }
 

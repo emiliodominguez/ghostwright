@@ -6,7 +6,7 @@ const WORDS = ['lorem', 'ipsum', 'dolor', 'amet', 'ghost', 'wright', 'render', '
 const CITIES = ['Austin', 'Berlin', 'Lisbon', 'Nairobi', 'Osaka', 'Quito'];
 
 function pick(list: string[]): string {
-	return list[Math.floor(Math.random() * list.length)];
+	return list[Math.floor(Math.random() * list.length)] ?? '';
 }
 function alnum(n: number): string {
 	return randomBytes(n)

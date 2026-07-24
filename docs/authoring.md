@@ -6,7 +6,8 @@ build a test by adding steps from a searchable menu, filling in a few fields per
 naming it.
 
 This document covers the step types, how to target elements, variables and secrets, custom
-code, and reusable actions.
+code, and reusable actions. For the surrounding features — runs, sessions, secrets, actions,
+scheduling, alerts, and visual regression as workflows — see [features.md](features.md).
 
 ## Step types
 

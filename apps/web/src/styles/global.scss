@@ -11,10 +11,12 @@
 	// Surfaces
 	--bg: #0a0a0b;
 	--bg-subtle: #0f0f11;
-	--surface-1: rgba(255, 255, 255, 0.03);
-	--surface-2: rgba(255, 255, 255, 0.04);
-	--surface-3: rgba(255, 255, 255, 0.07);
-	--field-bg: rgba(0, 0, 0, 0.25);
+	--surface-1: rgba(255, 255, 255, 0.045);
+	--surface-2: rgba(255, 255, 255, 0.06);
+	--surface-3: rgba(255, 255, 255, 0.09);
+	// A raised well: lighter than the page so inputs read as distinct controls
+	// (the old near-black fill was indistinguishable from --bg).
+	--field-bg: rgba(255, 255, 255, 0.035);
 	--overlay: rgba(0, 0, 0, 0.6);
 
 	// Text
@@ -23,10 +25,10 @@
 	--text-subtle: rgba(255, 255, 255, 0.44);
 	--text-faint: rgba(255, 255, 255, 0.3);
 
-	// Borders
-	--border: rgba(255, 255, 255, 0.1);
-	--border-strong: rgba(255, 255, 255, 0.24);
-	--border-subtle: rgba(255, 255, 255, 0.06);
+	// Borders — visible enough to delineate controls/cards against the near-black bg.
+	--border: rgba(255, 255, 255, 0.15);
+	--border-strong: rgba(255, 255, 255, 0.28);
+	--border-subtle: rgba(255, 255, 255, 0.09);
 
 	// Accent (violet) — brand / primary / AI
 	--accent: #8b5cf6;
@@ -35,10 +37,15 @@
 	--accent-soft: rgba(139, 92, 246, 0.15);
 	--accent-border: rgba(139, 92, 246, 0.32);
 	--accent-contrast: #ffffff;
+	// Text selection — a solid accent tint with bright text, so a highlight is
+	// clearly readable (the old --accent-soft at 15% was barely visible).
+	--selection-bg: rgba(139, 92, 246, 0.4);
+	--selection-text: #f5f3ff;
 
 	// Status — success (emerald)
 	--success: #10b981;
 	--success-text: #6ee7b7;
+	--success-contrast: #ffffff; // legible text/icon on a --success fill
 	--success-soft: rgba(16, 185, 129, 0.15);
 	--success-border: rgba(16, 185, 129, 0.3);
 
@@ -101,10 +108,10 @@
 	--text-subtle: rgba(23, 23, 28, 0.48);
 	--text-faint: rgba(23, 23, 28, 0.36);
 
-	// Borders
-	--border: rgba(15, 15, 20, 0.11);
-	--border-strong: rgba(15, 15, 20, 0.24);
-	--border-subtle: rgba(15, 15, 20, 0.07);
+	// Borders — a touch stronger so white cards/inputs have a clear edge on the grey bg.
+	--border: rgba(15, 15, 20, 0.16);
+	--border-strong: rgba(15, 15, 20, 0.3);
+	--border-subtle: rgba(15, 15, 20, 0.1);
 
 	// Accent
 	--accent: #7c3aed;
@@ -113,10 +120,14 @@
 	--accent-soft: rgba(124, 58, 237, 0.11);
 	--accent-border: rgba(124, 58, 237, 0.28);
 	--accent-contrast: #ffffff;
+	// Text selection — solid accent fill with white text for a clear highlight.
+	--selection-bg: rgba(124, 58, 237, 0.85);
+	--selection-text: #ffffff;
 
 	// Status — success
 	--success: #059669;
 	--success-text: #047857;
+	--success-contrast: #ffffff; // legible text/icon on a --success fill
 	--success-soft: rgba(5, 150, 105, 0.12);
 	--success-border: rgba(5, 150, 105, 0.28);
 
@@ -180,6 +191,10 @@ html {
 	-webkit-text-size-adjust: 100%;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+	// Always reserve the vertical scrollbar's gutter so the page (and its centered
+	// container) doesn't shift horizontally when the scrollbar appears/disappears
+	// between a short page and a tall one.
+	scrollbar-gutter: stable;
 }
 
 body {
@@ -232,7 +247,12 @@ pre {
 }
 
 ::selection {
-	background-color: var(--accent-soft);
+	background-color: var(--selection-bg);
+	color: var(--selection-text);
+}
+::-moz-selection {
+	background-color: var(--selection-bg);
+	color: var(--selection-text);
 }
 
 body {

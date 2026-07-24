@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { aiEnabled, resolveStep, triageFailure } from '@ghostwright/ai';
-import { putObject, uploadFile } from '@ghostwright/artifacts';
+import { deletePrefix, putObject, uploadFile } from '@ghostwright/artifacts';
 import { db, tables } from '@ghostwright/db';
 import {
 	compile,
@@ -19,8 +19,7 @@ import {
 	type TestSettings,
 } from '@ghostwright/dsl';
 import { writeFile } from 'node:fs/promises';
-import { createLogger } from '@ghostwright/otel/logger';
-import { recordRun, withRunSpan, withStepSpan } from '@ghostwright/otel';
+import { createLogger } from '@ghostwright/logger';
 import { expect } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 import { chromium, firefox, webkit } from 'playwright-core';
@@ -103,7 +102,6 @@ export async function executeRun(job: RunJob): Promise<string> {
 				.set({ status: 'errored', error: message, finishedAt: new Date() })
 				.where(eq(tables.run.id, job.runId))
 				.catch(() => {});
-			recordRun('errored');
 		}
 		throw err;
 	}
@@ -133,6 +131,9 @@ async function executeRunInner(job: RunJob): Promise<string> {
 	let attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, job.runId, storageState);
 
 	// Re-auth: if we failed and landed on a login page, refresh the session and retry once.
+	// This is session recovery (the captured login expired), NOT a flakiness retry, so it is
+	// deliberately separate from and does not consume `retryOnFail` — an expired session must
+	// not eat the user's retry budget. It runs at most once, before any retryOnFail attempts.
 	// The run row stays "running" across this so watchers don't see the transient failure.
 	if (attempt.status === 'failed' && job.loginFlowId && /\b(log[-\s]?in|sign[-\s]?in|sso|oauth|authenticate|session[-\s]?expired)\b/i.test(attempt.finalUrl)) {
 		log.info({ loginFlowId: job.loginFlowId }, 're-authenticating after login redirect');
@@ -141,9 +142,13 @@ async function executeRunInner(job: RunJob): Promise<string> {
 		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, attempt.runId, storageState);
 	}
 
-	// Auto-retry once on failure (cuts false positives) when the test opts in.
-	if (attempt.status === 'failed' && settings.retry) {
-		log.info({ runId: attempt.runId }, 'auto-retrying failed run once');
+	// Whole-run retry on failure (cuts false positives) when the test opts in.
+	// `retryOnFail` is the extra-attempt count; the legacy `retry` boolean means 1.
+	const runRetries = settings.retryOnFail ?? (settings.retry ? 1 : 0);
+	const runRetryDelay = settings.retryDelayMs ?? 0;
+	for (let r = 0; attempt.status === 'failed' && r < runRetries; r++) {
+		log.info({ runId: attempt.runId, retry: r + 1, of: runRetries }, 'retrying failed run');
+		if (runRetryDelay > 0) await new Promise((res) => setTimeout(res, runRetryDelay));
 		attempt = await runAttempt(job, testVersionId, tv.testId, orgId, parsed, settings, attempt.runId, storageState);
 	}
 
@@ -160,7 +165,6 @@ async function executeRunInner(job: RunJob): Promise<string> {
 			finishedAt: new Date(),
 		})
 		.where(eq(tables.run.id, attempt.runId));
-	recordRun(attempt.status);
 
 	// Everything below is best-effort and MUST NOT propagate — a throw here would trip the
 	// outer catch and overwrite the just-committed verdict with `errored`.
@@ -202,12 +206,19 @@ async function runAttempt(
 		await db.update(tables.run).set({ status: 'running', browser: browserName, startedAt: new Date() }).where(eq(tables.run.id, existingRunId));
 		// Clear any prior step rows (e.g. a failed attempt before re-auth) so the row reflects this attempt.
 		await db.delete(tables.stepResult).where(eq(tables.stepResult.runId, existingRunId));
+		// Also clear this run's per-step objects so a shorter passing retry can't leave
+		// screenshots from a longer earlier attempt orphaned. Best-effort — never fail the run.
+		await deletePrefix(`runs/${existingRunId}/steps/`).catch((err: unknown) =>
+			log.warn({ runId: existingRunId, err: err instanceof Error ? err.message : String(err) }, 'stale step-object cleanup skipped'),
+		);
 		runId = existingRunId;
 	} else {
 		const [row] = await db
 			.insert(tables.run)
 			.values({ testVersionId, status: 'running', browser: browserName, viewport: job.viewport ?? '1280x720', startedAt: new Date() })
 			.returning();
+		if (!row) throw new Error('failed to insert run row');
+
 		runId = row.id;
 	}
 	log.info({ runId, browser: browserName, steps: testDsl.steps.length, authed: Boolean(storageState) }, 'run started');
@@ -285,13 +296,18 @@ async function runAttempt(
 			.filter(([k]) => k.startsWith('secret.'))
 			.map(([, v]) => v)
 			.filter((v) => v.length >= 4);
-		const redact = (s: string | undefined): string | undefined => (s ? secretValues.reduce((acc, v) => acc.split(v).join('***'), s) : s);
+		// Playwright bakes ANSI color escape codes into error.message (its "Call log"), which
+		// render as `␛[2m` garbage in the web UI. Strip them here, at the single point every
+		// persisted error passes through, alongside secret redaction.
+		// eslint-disable-next-line no-control-regex
+		const stripAnsi = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, '');
+		const redact = (s: string | undefined): string | undefined => (s ? stripAnsi(secretValues.reduce((acc, v) => acc.split(v).join('***'), s)) : s);
 
 		const compiled = testDsl.steps.map(compile);
-		await withRunSpan(runId, async () => {
 		let stop = false;
 		for (let i = 0; i < compiled.length; i++) {
 		const step = compiled[i];
+		if (!step) continue;
 		const startedAt = Date.now();
 		let stepStatus: StepStatus = 'passed';
 		let stepError: string | undefined;
@@ -309,22 +325,39 @@ async function runAttempt(
 		if (!willRun) {
 			stepStatus = 'skipped';
 		} else {
-			try {
-				await withStepSpan({ runId, idx: i, type: step.type }, () => step.run(page as unknown as StepPage, ctx));
-			} catch (err) {
-				if (err instanceof ExitTest) {
-					// Early exit: the run's verdict is set by the exit step; stop cleanly.
-					stepStatus = err.pass ? 'passed' : 'failed';
-					if (!err.pass) {
-						status = 'failed';
-						runError = 'test exited with a failing status';
+			// Per-step retry: the step's own setting wins, else the test's stepRetries default, else 0.
+			const maxRetries = step.retries ?? settings.stepRetries ?? 0;
+			const retryDelay = step.retryDelayMs ?? settings.stepRetryDelayMs ?? 0;
+			let stepAttempt = 0;
+			// Loop until the step passes or retries are exhausted. ExitTest is never retried.
+			for (;;) {
+				try {
+					await step.run(page as unknown as StepPage, ctx);
+					stepStatus = 'passed';
+					stepError = undefined;
+					break;
+				} catch (err) {
+					if (err instanceof ExitTest) {
+						// Early exit: the run's verdict is set by the exit step; stop cleanly.
+						stepStatus = err.pass ? 'passed' : 'failed';
+						if (!err.pass) {
+							status = 'failed';
+							runError = 'test exited with a failing status';
+						}
+						stop = true;
+						break;
 					}
-					stop = true;
-				} else {
-					stepStatus = 'failed';
 					stepError = err instanceof Error ? err.message : String(err);
+					if (stepAttempt < maxRetries) {
+						log.info({ runId, idx: i, type: step.type, attempt: stepAttempt + 1, of: maxRetries }, 'step failed, retrying');
+						stepAttempt++;
+						if (retryDelay > 0) await page.waitForTimeout(retryDelay);
+						continue;
+					}
+					stepStatus = 'failed';
 					status = 'failed';
 					runError = stepError;
+					break;
 				}
 			}
 		}
@@ -354,7 +387,6 @@ async function runAttempt(
 			if (settings.stepDelayMs) await page.waitForTimeout(settings.stepDelayMs);
 			if (stepStatus === 'failed' || stop) break;
 		}
-		});
 
 		// A page JS error fails an otherwise-passing run when fail-on-JS-error is set.
 		if (status === 'passed' && jsErrors.length > 0) {

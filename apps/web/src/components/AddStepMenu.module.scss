@@ -40,7 +40,9 @@
 
 .menu {
 	position: fixed;
-	z-index: z('dropdown');
+	// Above the modal layer so the chooser is visible when opened from inside the
+	// editor modal; still below toasts.
+	z-index: z('popover');
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;

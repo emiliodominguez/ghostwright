@@ -1,5 +1,4 @@
-import './telemetry';
-import { createLogger } from '@ghostwright/otel/logger';
+import { createLogger } from '@ghostwright/logger';
 import { startWorker } from './queue';
 
 const log = createLogger('worker');

@@ -1,11 +1,13 @@
-import { describeStep, parseTest, toCode, type Locator, type Step } from '@ghostwright/dsl';
-import { createSignal, For, onMount, Show } from 'solid-js';
+import { parseTest, toCode, type Locator, type Step } from '@ghostwright/dsl';
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
+import { Portal } from 'solid-js/web';
 import { trpc } from '../lib/trpc';
 import AddStepMenu from './AddStepMenu';
 import CodeEditor from './CodeEditor';
 import Select from './Select';
-import { IconChevronDown, IconChevronUp, IconClose, IconCode, IconSparkle, IconStar, IconTrash } from './icons';
+import StepText from './StepText';
+import { IconChevronDown, IconChevronUp, IconClose, IconCode, IconPlus, IconSparkle, IconStar, IconTrash } from './icons';
 import styles from './StepBuilder.module.scss';
 
 type SavedAction = { id: string; name: string; dsl: string };
@@ -135,7 +137,7 @@ function ElementField(props: { locator: Locator; onChange: (l: Locator) => void 
 		<div class={styles['picker']}>
 			<StrategyPicker locator={loc()} onChange={(l) => props.onChange(l as Locator)} />
 			<button type="button" class={styles['adv-toggle']} onClick={() => setAdv((v) => !v)}>
-				{adv() ? '− fewer options' : '+ exact match, backup selectors, which-one'}
+				{adv() ? '− fewer options' : '+ exact match, backup selectors, which one'}
 			</button>
 			<Show when={adv()}>
 				<div class={styles['adv-panel']}>
@@ -196,12 +198,29 @@ function normalize(steps: Step[]): Step[] {
  * The no-code test builder: a stack of plain-language step cards plus an action palette.
  * This is the primary authoring surface — no code, no DSL knowledge required.
  */
-export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' }) {
+export default function StepBuilder(props: {
+	mode?: 'test' | 'action' | 'login';
+	// When editing an existing login flow, these seed the form and switch Save to update.
+	editId?: string;
+	initialName?: string;
+	initialSteps?: Step[];
+	// Called after a successful save. When provided (edit mode), the builder does not
+	// navigate away, letting the parent refresh in place.
+	onSaved?: () => void;
+	// Pin the footer (Save / Cancel actions) to the bottom of the scroll area so it
+	// stays visible while a long step list scrolls. Used when the builder is in a modal.
+	stickyFooter?: boolean;
+}) {
 	const isAction = () => props.mode === 'action';
 	const isLogin = () => props.mode === 'login';
+	const isEditing = () => Boolean(props.editId);
 	const special = () => props.mode === 'action' || props.mode === 'login';
-	const [name, setName] = createSignal('');
-	const [steps, setSteps] = createStore<Step[]>(special() ? [] : [...EXAMPLE]);
+	const [name, setName] = createSignal(props.initialName ?? '');
+	// Start empty. Loading the example steps is opt-in via the "load an example"
+	// link in the empty state; when editing, seed from the provided initial steps.
+	// Deep-copy the seed (not just the array) so the store owns its own step/locator
+	// objects — nested edits through the store can never mutate a caller's array.
+	const [steps, setSteps] = createStore<Step[]>(props.initialSteps ? (JSON.parse(JSON.stringify(props.initialSteps)) as Step[]) : []);
 	const [busy, setBusy] = createSignal(false);
 	const [err, setErr] = createSignal('');
 	const [showCode, setShowCode] = createSignal(false);
@@ -209,6 +228,16 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 	const [savedMsg, setSavedMsg] = createSignal('');
 	const [savingAction, setSavingAction] = createSignal(false);
 	const [actionName, setActionName] = createSignal('');
+
+	// While the code popup is open, close it on Escape (matching the editor modal).
+	createEffect(() => {
+		if (!showCode()) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') setShowCode(false);
+		};
+		document.addEventListener('keydown', onKey);
+		onCleanup(() => document.removeEventListener('keydown', onKey));
+	});
 
 	// Reusable actions can be dropped into a test (but not into another action/login, to keep authoring simple).
 	onMount(() => {
@@ -261,7 +290,7 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 			await refreshActions();
 			setSavingAction(false);
 			setActionName('');
-			setSavedMsg(`Saved "${nm}" — it's now in the palette.`);
+			setSavedMsg(`Saved "${nm}". It is now in the palette.`);
 			setTimeout(() => setSavedMsg(''), 4000);
 		} catch (e) {
 			setErr(e instanceof Error ? e.message : String(e));
@@ -291,16 +320,34 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 			const clean = normalize(steps);
 			parseTest({ steps: clean });
 			const dsl = JSON.stringify({ steps: clean });
+			const nm = name().trim();
+			const editId = props.editId;
+			// Persist via the right mutation for this mode, creating or updating.
+			// `dest` is where to navigate after a create (or an edit without onSaved).
+			let dest: string;
 			if (isLogin()) {
-				await trpc.loginFlows.create.mutate({ name: name().trim(), dsl });
-				window.location.href = '/logins';
+				if (editId) await trpc.loginFlows.update.mutate({ id: editId, name: nm, dsl });
+				else await trpc.loginFlows.create.mutate({ name: nm, dsl });
+				dest = '/logins';
 			} else if (isAction()) {
-				await trpc.actions.create.mutate({ name: name().trim(), dsl });
-				window.location.href = '/actions';
+				if (editId) await trpc.actions.update.mutate({ id: editId, name: nm, dsl });
+				else await trpc.actions.create.mutate({ name: nm, dsl });
+				dest = '/actions';
+			} else if (editId) {
+				await trpc.tests.update.mutate({ id: editId, name: nm, dsl });
+				dest = `/tests/${editId}`;
 			} else {
-				const { id } = await trpc.tests.create.mutate({ name: name().trim(), dsl });
-				window.location.href = `/tests/${id}`;
+				dest = `/tests/${(await trpc.tests.create.mutate({ name: nm, dsl })).id}`;
 			}
+
+			// In edit mode with an onSaved callback (modal), let the parent refresh
+			// in place instead of navigating away.
+			if (editId && props.onSaved) {
+				props.onSaved();
+				setBusy(false);
+				return;
+			}
+			window.location.href = dest;
 		} catch (e) {
 			setErr(e instanceof Error ? e.message : String(e));
 			setBusy(false);
@@ -310,7 +357,7 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 	return (
 		<div class={styles['builder']}>
 			<div class={styles['field-group']}>
-				<label class={styles['label']}>{isLogin() ? 'Name your login flow' : isAction() ? 'Name your action' : 'Name your test'}</label>
+				<label class={styles['label']}>{isEditing() ? (isLogin() ? 'Login flow name' : isAction() ? 'Action name' : 'Test name') : isLogin() ? 'Name your login flow' : isAction() ? 'Name your action' : 'Name your test'}</label>
 				<input
 					class={styles['input']}
 					value={name()}
@@ -333,11 +380,10 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 					when={steps.length > 0}
 					fallback={
 						<div class={styles['empty']}>
-							No steps yet. Use <strong>Add step</strong> below to begin — or{' '}
+							No steps yet, use <strong>Add step</strong> below to begin, or{' '}
 							<button type="button" class={styles['link-inline']} onClick={() => setSteps([...EXAMPLE])}>
 								load an example
 							</button>
-							.
 						</div>
 					}
 				>
@@ -347,7 +393,7 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 								<li class={styles['step']}>
 									<div class={styles['step-top']}>
 										<span class={styles['step-num']}>{i() + 1}</span>
-										<p class={styles['step-desc']}>{describeStep(steps[i()])}</p>
+										<p class={styles['step-desc']}><StepText step={steps[i()]} /></p>
 										<div class={styles['step-controls']}>
 											<button type="button" title="Move up" class={styles['icon-btn']} disabled={i() === 0} onClick={() => move(i(), -1)}>
 												<IconChevronUp size={15} />
@@ -362,15 +408,10 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 									</div>
 									<div class={styles['step-body']}>
 										{stepFields(step, i(), patchStep)}
-										<div class={styles['condition']}>
-											<label class={styles['condition-label']}>Only run this step if… (optional JS, e.g. {'{{count}}'} &gt; 0)</label>
-											<input
-												class={styles['condition-input']}
-												value={(steps[i()] as { condition?: string }).condition ?? ''}
-												placeholder="always runs"
-												onInput={(e) => patchStep(i(), { condition: e.currentTarget.value } as Partial<Step>)}
-											/>
-										</div>
+										<StepCondition
+											value={(steps[i()] as { condition?: string }).condition ?? ''}
+											onChange={(condition) => patchStep(i(), { condition } as Partial<Step>)}
+										/>
 									</div>
 								</li>
 							)}
@@ -413,9 +454,9 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 				<p class={styles['notice']}>{savedMsg()}</p>
 			</Show>
 
-			<div class={styles['footer']}>
+			<div class={`${styles['footer']} ${props.stickyFooter ? styles['footer-sticky'] : ''}`}>
 				<button type="button" onClick={submit} disabled={busy()} class={styles['submit']}>
-					{busy() ? 'Saving…' : isLogin() ? 'Save login flow' : isAction() ? 'Save action' : 'Create test'}
+					{busy() ? 'Saving…' : isEditing() ? 'Save changes' : isLogin() ? 'Save login flow' : isAction() ? 'Save action' : 'Create test'}
 				</button>
 				<Show when={!special()}>
 					<Show
@@ -449,9 +490,77 @@ export default function StepBuilder(props: { mode?: 'test' | 'action' | 'login' 
 			</div>
 
 			<Show when={showCode()}>
-				<CodeEditor readOnly value={steps.length ? toCode({ steps: normalize(steps) }) : '// add steps to see the generated code'} minHeight="4rem" />
+				<Portal>
+					<div
+						class={styles['code-backdrop']}
+						role="presentation"
+						onClick={(e) => {
+							if (e.target === e.currentTarget) setShowCode(false);
+						}}
+					>
+						<div class={styles['code-popup']} role="dialog" aria-modal="true" aria-label="Generated code">
+							<div class={styles['code-head']}>
+								<span class={styles['code-title']}>
+									<IconCode size={15} />
+									Generated code
+								</span>
+								<button type="button" title="Close" aria-label="Close" class={styles['code-close']} onClick={() => setShowCode(false)}>
+									<IconClose size={16} />
+								</button>
+							</div>
+							<div class={styles['code-body']}>
+								<CodeEditor readOnly value={steps.length ? toCode({ steps: normalize(steps) }) : '// add steps to see the generated code'} minHeight="4rem" />
+							</div>
+						</div>
+					</div>
+				</Portal>
 			</Show>
 		</div>
+	);
+}
+
+/**
+ * Optional per-step "only run if" condition. Collapsed to a subtle toggle by default
+ * (a condition is rare, so it shouldn't clutter every step), and expands into a proper
+ * JS code block — matching the run-code / assert-code steps — when the user adds one.
+ * Starts open when the step already has a condition (e.g. when editing an existing test).
+ */
+function StepCondition(props: { value: string; onChange: (v: string) => void }) {
+	const [open, setOpen] = createSignal(props.value.trim() !== '');
+
+	function remove() {
+		props.onChange('');
+		setOpen(false);
+	}
+
+	return (
+		<Show
+			when={open()}
+			fallback={
+				<button type="button" class={styles['condition-add']} onClick={() => setOpen(true)}>
+					<IconPlus size={13} />
+					Add a condition
+				</button>
+			}
+		>
+			<div class={styles['condition']}>
+				<div class={styles['condition-head']}>
+					<label class={styles['label']}>Only run this step if</label>
+					<button type="button" class={styles['condition-remove']} title="Remove condition" aria-label="Remove condition" onClick={remove}>
+						<IconClose size={13} />
+					</button>
+				</div>
+				<CodeEditor
+					value={props.value}
+					onChange={props.onChange}
+					placeholder="e.g. {{count}} > 0"
+					minHeight="2.5rem"
+				/>
+				<p class={styles['hint']}>
+					JavaScript that returns true to run this step, false to skip it. Use <code>{'{{variables}}'}</code>; leave empty to always run.
+				</p>
+			</div>
+		</Show>
 	);
 }
 
@@ -528,7 +637,7 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 		case 'actionRef':
 			return (
 				<p class={styles['hint']}>
-					Live reference — runs the latest steps of this action. Edit it on the{' '}
+					Live reference. Runs the latest steps of this action. Edit it on the{' '}
 					<a href="/actions" class={styles['link-inline']}>
 						Actions
 					</a>{' '}
@@ -640,7 +749,7 @@ function stepFields(step: Step, i: number, set: (idx: number, patch: Partial<Ste
 						onInput={(e) => patch({ instruction: e.currentTarget.value })}
 					/>
 					<p class={styles['hint']}>
-						<IconSparkle size={12} /> The AI will find the right element on the page for you.
+						<IconSparkle size={12} /> The AI finds the right element on the page.
 					</p>
 				</div>
 			);

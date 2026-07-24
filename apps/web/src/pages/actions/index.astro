@@ -3,15 +3,17 @@ import Layout from '../../layouts/Layout.astro';
 import PageHeader from '../../components/PageHeader.astro';
 import StepBuilder from '../../components/StepBuilder.tsx';
 import DeleteAction from '../../components/DeleteAction.tsx';
+import EditAction from '../../components/EditAction.tsx';
+import StepSegments from '../../components/StepSegments.astro';
 import { createCaller } from '../../server/routers';
-import { describeStep, parseTest } from '@ghostwright/dsl';
+import { describeSegments, parseTest, type DescSegment } from '@ghostwright/dsl';
 
 const actions = await createCaller().actions.list();
 
-/** Plain-language preview of an action's steps (best-effort). */
-function preview(dsl: string): string[] {
+/** Styled-segment preview of an action's steps (best-effort). */
+function preview(dsl: string): DescSegment[][] {
 	try {
-		return parseTest(JSON.parse(dsl)).steps.map(describeStep);
+		return parseTest(JSON.parse(dsl)).steps.map(describeSegments);
 	} catch {
 		return [];
 	}
@@ -44,13 +46,14 @@ function preview(dsl: string): string[] {
 										</span>
 										<div class="action-meta">
 											<span class="count">{lines.length} step{lines.length === 1 ? '' : 's'}</span>
+											<EditAction client:load id={a.id} name={a.name} dsl={a.dsl} />
 											<DeleteAction client:load id={a.id} />
 										</div>
 									</div>
 									<ol class="preview">
-										{lines.map((l, i) => (
+										{lines.map((segments, i) => (
 											<li>
-												<span class="idx">{i + 1}.</span> {l}
+												<span class="idx">{i + 1}.</span> <StepSegments segments={segments} />
 											</li>
 										))}
 									</ol>
@@ -78,7 +81,8 @@ function preview(dsl: string): string[] {
 		gap: space(10);
 
 		@include at('lg') {
-			grid-template-columns: 22rem minmax(0, 1fr);
+			// Same list-column width as Home/Logins/Secrets for a consistent layout.
+			grid-template-columns: 30rem minmax(0, 1fr);
 			gap: space(12);
 			align-items: start;
 		}

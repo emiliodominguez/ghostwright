@@ -1,0 +1,17 @@
+{
+	"name": "@ghostwright/logger",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Tiny dependency-free structured logger used across the app and worker.",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts --clean",
+		"typecheck": "tsc --noEmit"
+	}
+}

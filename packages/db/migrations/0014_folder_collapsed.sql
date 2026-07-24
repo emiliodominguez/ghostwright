@@ -1,0 +1,1 @@
+ALTER TABLE `folder` ADD `collapsed` integer DEFAULT false NOT NULL;

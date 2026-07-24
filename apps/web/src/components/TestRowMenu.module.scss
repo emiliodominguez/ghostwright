@@ -1,0 +1,155 @@
+@use '../styles/abstracts' as *;
+
+// The "⋯" trigger on a test row and its portalled action popover.
+
+.trigger {
+	@include icon-button;
+	flex-shrink: 0;
+}
+
+.menu {
+	position: fixed;
+	z-index: z('popover');
+	min-width: 12rem;
+	max-width: 16rem;
+	padding: space(1);
+	border: 1px solid var(--border-strong);
+	border-radius: radius('lg');
+	background-color: var(--bg-subtle);
+	box-shadow: var(--shadow-lg);
+	animation: menu-in $transition-fast $ease;
+}
+
+@keyframes menu-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+.item {
+	@include button-reset;
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	width: 100%;
+	padding: space(2) space(2.5);
+	border-radius: radius('md');
+	font-size: font-size('sm');
+	color: var(--text-muted);
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background-color $transition-base $ease,
+		color $transition-base $ease;
+
+	svg {
+		flex-shrink: 0;
+		color: var(--text-faint);
+	}
+
+	&:hover {
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+
+	&.danger:hover {
+		background-color: var(--danger-soft);
+		color: var(--danger-text);
+
+		svg {
+			color: var(--danger-text);
+		}
+	}
+
+	// The currently-selected folder in the move submenu.
+	&.current {
+		color: var(--accent-text);
+	}
+}
+
+// Trailing chevron on the "Move to folder" item.
+.chev {
+	margin-left: auto;
+	color: var(--text-faint);
+}
+
+.divider {
+	height: 1px;
+	margin: space(1) space(1);
+	background-color: var(--border);
+}
+
+// "‹ Move to folder" header in the submenu.
+.back {
+	@include button-reset;
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: space(2) space(2.5);
+	border-radius: radius('md');
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+	color: var(--text-subtle);
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text);
+	}
+}
+
+// Scrollable folder list inside the move submenu.
+.scroll {
+	display: flex;
+	flex-direction: column;
+	max-height: 15rem;
+	overflow-y: auto;
+	@include thin-scrollbar;
+}
+
+// Delete confirmation view.
+.confirm-text {
+	margin: 0;
+	padding: space(2) space(2.5);
+	font-size: font-size('xs');
+	color: var(--text-muted);
+	line-height: 1.4;
+}
+
+.confirm-row {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	padding: space(1) space(2.5) space(2);
+}
+
+.confirm-yes {
+	@include button-reset;
+	padding: space(1) space(2.5);
+	border-radius: radius('md');
+	background-color: var(--danger);
+	color: #fff;
+	font-size: font-size('xs');
+	font-weight: $weight-medium;
+	cursor: pointer;
+	transition: background-color $transition-base $ease;
+
+	&:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--danger) 88%, black);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.cancel {
+	@include button-reset;
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-muted);
+	}
+}

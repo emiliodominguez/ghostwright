@@ -8,12 +8,10 @@ Compose stack.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | libSQL endpoint for application data, for example `http://localhost:8080` |
+| `DATABASE_URL` | Yes | libSQL endpoint for application data, for example `http://localhost:8180` |
 | `DATABASE_AUTH_TOKEN` | No | Auth token for a hosted or secured libSQL instance |
-| `REDIS_URL` | Yes | Redis connection for the job queue, for example `redis://localhost:6379` |
-
-`REDIS_HOST` and `REDIS_PORT` are also honored if you prefer to set them separately instead of
-`REDIS_URL`.
+| `REDIS_HOST` | No | Redis host for the job queue. Defaults to `127.0.0.1`. |
+| `REDIS_PORT` | No | Redis port for the job queue. Defaults to `6379`. |
 
 ## Artifacts (S3 or MinIO)
 
@@ -32,7 +30,7 @@ Compose stack.
 | --- | --- | --- |
 | `GHOSTWRIGHT_SECRET_KEY` | Yes in production | Key used to encrypt stored passwords and TOTP seeds. Keep it stable, or existing secrets can no longer be decrypted. |
 | `GHOSTWRIGHT_ACCESS_TOKEN` | No | If set, the dashboard requires this token. Leave unset for an open local instance. |
-| `GHOSTWRIGHT_BLOCK_PRIVATE_NETWORK` | No | When enabled, the worker refuses navigations to private network ranges to reduce SSRF risk. On by default. |
+| `GHOSTWRIGHT_BLOCK_PRIVATE_NETWORK` | No | Set to `1` so the worker refuses outbound requests to private, loopback, and link-local addresses (reduces SSRF risk on shared or hosted deployments). Off by default, since self-hosted single-tenant setups often need to reach internal apps. |
 
 ## AI
 
@@ -54,34 +52,22 @@ Needed only if you configure an email alert channel.
 | `SMTP_URL` | For email | SMTP connection string |
 | `SMTP_FROM` | For email | From address on alert emails |
 
-## Worker and scheduler tuning
+## Worker tuning
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `WORKER_CONCURRENCY` | No | How many runs the worker processes at once |
-| `SCHEDULER_RECONCILE_MS` | No | How often the scheduler checks for due schedules |
 
-## Observability
+## Logging
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | No | Where to send OpenTelemetry traces |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Base OTLP endpoint, if you set one instead of the traces-specific variable |
-| `LOG_LEVEL` | No | Log verbosity, for example `info` or `debug` |
+| `LOG_LEVEL` | No | Log verbosity: `debug`, `info`, `warn`, `error`, or `silent`. Defaults to `info`. |
 
 ## Dashboard and general
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
+| `WEB_PORT` | No | Port the dashboard listens on. Defaults to `4321`. |
 | `PUBLIC_BASE_URL` | No | Public URL of the dashboard, used in links and alerts |
 | `NODE_ENV` | No | `development` or `production` |
-
-## CLI
-
-The CLI reads two variables so it can reach your instance from CI. See
-[api.md](api.md) for details.
-
-| Variable | Purpose |
-| --- | --- |
-| `GHOSTWRIGHT_API_URL` | Base URL of your Ghostwright instance |
-| `GHOSTWRIGHT_API_KEY` | API key used to authenticate |

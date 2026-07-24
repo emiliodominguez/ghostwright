@@ -1,13 +1,16 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import ApproveBaseline from '../../components/ApproveBaseline.tsx';
+import RunActions from '../../components/RunActions.tsx';
+import BrowserLogo from '../../components/BrowserLogo.tsx';
+import StepSegments from '../../components/StepSegments.astro';
 import { createCaller } from '../../server/routers';
-import { runStatus, stepStatus } from '../../lib/status';
+import { runStatus, stepStatus, stripAnsi } from '../../lib/status';
 
 const { id } = Astro.params;
 const data = id ? await createCaller().runs.get({ id }) : null;
 if (!data?.run) return Astro.redirect('/');
-const { run, steps, descriptions, test } = data;
+const { run, steps, descriptions, descriptionSegments, test } = data;
 const inProgress = run.status === 'queued' || run.status === 'running';
 const traceSrc = run.traceKey ? `/trace-viewer/index.html?trace=${encodeURIComponent('/artifacts/' + run.traceKey)}` : null;
 const triage = run.triage ? (JSON.parse(run.triage) as { summary: string; likelyCause: string; suggestedFix: string }) : null;
@@ -23,7 +26,7 @@ const skipped = steps.filter((s) => s.status === 'skipped').length;
 
 /** Compact duration string: 450ms · 2.0s · 1m 3s. */
 function fmtDur(ms: number | null): string {
-	if (ms == null) return '—';
+	if (ms == null) return 'None';
 	if (ms < 1000) return `${ms}ms`;
 	const s = ms / 1000;
 	if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
@@ -31,10 +34,10 @@ function fmtDur(ms: number | null): string {
 	return `${m}m ${Math.round(s % 60)}s`;
 }
 
-const stats: { label: string; value: string }[] = [
-	{ label: 'Duration', value: fmtDur(totalMs ?? sumStepMs) },
-	{ label: 'Steps passed', value: `${passed} / ${steps.length}` },
-	{ label: 'Browser', value: run.browser },
+const stats: { label: string; value: string; key?: string; browser?: string }[] = [
+	{ label: 'Duration', value: fmtDur(totalMs ?? sumStepMs), key: 'duration' },
+	{ label: 'Steps passed', value: `${passed} / ${steps.length}`, key: 'steps-passed' },
+	{ label: 'Browser', value: run.browser, browser: run.browser },
 	{ label: 'Viewport', value: run.viewport },
 	{ label: 'Started', value: new Date(started).toLocaleString() },
 ];
@@ -46,7 +49,7 @@ if (run.harKey) artifacts.push({ label: 'Download HAR', href: `/artifacts/${run.
 if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/artifacts/${run.screenshotKey}`, newTab: true });
 ---
 
-<Layout title={test ? `${test.name} — result` : `Run ${run.id.slice(0, 8)}`} wide>
+<Layout title={test ? `${test.name} result` : `Run ${run.id.slice(0, 8)}`} wide>
 	<header class="page-head">
 		<a href={test ? `/tests/${test.id}` : '/'} class="back">
 			<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,10 +59,11 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		</a>
 		<div class="head-row">
 			<h1>Test result</h1>
-			<span class="badge" data-tone={status.tone}>
+			<span class="badge" data-tone={status.tone} data-run-badge>
 				{inProgress && <span class="dot" data-tone="running"></span>}
-				{status.label}
+				<span data-run-label>{status.label}</span>
 			</span>
+			{!inProgress && <div class="head-actions"><RunActions client:load id={run.id} status={run.status} testId={test?.id} /></div>}
 		</div>
 		<p class="run-id">Run {run.id.slice(0, 8)}</p>
 	</header>
@@ -68,7 +72,7 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		inProgress && (
 			<p class="running-note">
 				<span class="dot" data-tone="running"></span>
-				Running your test — this page refreshes itself as steps complete…
+				Running your test. This page updates as each step finishes.
 			</p>
 		)
 	}
@@ -78,7 +82,10 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 			stats.map((s) => (
 				<div class="stat">
 					<span class="stat-label">{s.label}</span>
-					<span class="stat-value">{s.value}</span>
+					<span class="stat-value" data-stat={s.key}>
+						{s.browser && <BrowserLogo browser={s.browser} size={18} />}
+						<span class:list={['stat-text', { browser: s.browser }]}>{s.value}</span>
+					</span>
 				</div>
 			))
 		}
@@ -90,13 +97,13 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 				{steps.map((s) => {
 					const st = stepStatus(s.status);
 					const pct = Math.max(2, ((s.durationMs ?? 0) / maxStepMs) * 100);
-					return <span class="seg" data-tone={st.tone} style={`flex: ${pct}`} title={`Step ${s.idx + 1}: ${st.label} (${fmtDur(s.durationMs ?? null)})`} />;
+					return <span class="seg" data-tone={st.tone} data-seg-idx={s.idx} style={`flex: ${pct}`} title={`Step ${s.idx + 1}: ${st.label} (${fmtDur(s.durationMs ?? null)})`} />;
 				})}
 			</div>
 		)
 	}
 
-	{run.error && <pre class="error-block">{run.error}</pre>}
+	{run.error && <pre class="error-block">{stripAnsi(run.error)}</pre>}
 
 	{
 		triage && (
@@ -130,27 +137,27 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 					const st = stepStatus(s.status);
 					const barPct = Math.max(1, ((s.durationMs ?? 0) / maxStepMs) * 100);
 					return (
-						<li class="step" data-tone={st.tone}>
+						<li class="step" data-tone={st.tone} data-step-idx={s.idx}>
 							<div class="step-head">
 								<span class="step-num" data-tone={st.tone}>
 									{s.idx + 1}
 								</span>
-								<span class="step-desc">{descriptions[s.idx] ?? s.type}</span>
-								<span class="step-status" data-tone={st.tone}>
+								<span class="step-desc">{descriptionSegments[s.idx] ? <StepSegments segments={descriptionSegments[s.idx]} /> : (descriptions[s.idx] ?? s.type)}</span>
+								<span class="step-status" data-tone={st.tone} data-step-status>
 									{st.label}
 								</span>
-								{s.durationMs != null && <span class="step-dur">{fmtDur(s.durationMs)}</span>}
+								{s.durationMs != null && <span class="step-dur" data-step-dur>{fmtDur(s.durationMs)}</span>}
 							</div>
 							{s.durationMs != null && (
 								<div class="step-bar" aria-hidden="true">
 									<span class="step-bar-fill" data-tone={st.tone} style={`width: ${barPct}%`} />
 								</div>
 							)}
-							{s.error && <p class="step-error">{s.error}</p>}
+							{s.error && <p class="step-error" data-step-error>{stripAnsi(s.error)}</p>}
 							{s.baselineKey ? (
 								<div class="diff">
 									<div class="diff-meta">
-										<span>{s.diffPct != null ? `Visual diff: ${s.diffPct.toFixed(2)}% changed` : 'Visual diff — baseline adopted'}</span>
+										<span>{s.diffPct != null ? `Visual diff: ${s.diffPct.toFixed(2)}% changed` : 'Visual diff: baseline adopted'}</span>
 										{s.diffKey && <ApproveBaseline client:load runId={run.id} stepIdx={s.idx} />}
 									</div>
 									<div class="diff-grid">
@@ -242,7 +249,7 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 							</svg>
 						</span>
 						<span class="facade-title">Load interactive trace</span>
-						<span class="facade-sub">Replay the run frame by frame — DOM snapshots, network &amp; console</span>
+						<span class="facade-sub">Replay the run frame by frame: DOM snapshots, network, and console</span>
 					</button>
 					<iframe data-trace-src={traceSrc} class="trace" title="Playwright trace" hidden />
 				</div>
@@ -295,7 +302,131 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 		})();
 	</script>
 
-	{inProgress && <script is:inline>setTimeout(() => location.reload(), 2000);</script>}
+	{
+		/* While a run is in progress, poll a lightweight status endpoint every 2s and
+		   patch the badge, timeline, and per-step rows in place — no full-page reload,
+		   so the page no longer flickers. When the run reaches a terminal state we do a
+		   single reload, once, to mount the trace/artifacts/triage sections (which only
+		   render server-side on completion). */
+	}
+	{
+		inProgress && (
+			<script is:inline data-run-poll={run.id}>
+				(function () {
+					var runId = document.currentScript.getAttribute('data-run-poll');
+					var RUN = {
+						passed: { label: 'Passed', tone: 'success' },
+						failed: { label: 'Failed', tone: 'danger' },
+						errored: { label: 'Something went wrong', tone: 'warning' },
+						running: { label: 'Running…', tone: 'running' },
+						queued: { label: 'Waiting to start', tone: 'neutral' },
+					};
+					var STEP = {
+						passed: { label: 'Passed', tone: 'success' },
+						failed: { label: 'Failed', tone: 'danger' },
+						skipped: { label: 'Skipped', tone: 'neutral' },
+					};
+
+					function fmtDur(ms) {
+						if (ms == null) return '';
+						if (ms < 1000) return ms + 'ms';
+						var s = ms / 1000;
+						if (s < 60) return s.toFixed(s < 10 ? 1 : 0) + 's';
+						var m = Math.floor(s / 60);
+						return m + 'm ' + Math.round(s % 60) + 's';
+					}
+
+					// Server-clock start of the run (epoch ms), set from the first poll that
+					// reports it. Drives the live duration ticker below; null while queued.
+					var startedAt = null;
+
+					var durEl = document.querySelector('[data-stat="duration"]');
+
+					// Tick the Duration stat once a second from wall-clock elapsed since the
+					// run started — independent of the 2s poll cadence, so it counts smoothly.
+					// The terminal reload reconciles it to the exact finishedAt − startedAt.
+					function tickDuration() {
+						if (durEl && startedAt != null) durEl.textContent = fmtDur(Date.now() - startedAt);
+					}
+					setInterval(tickDuration, 1000);
+
+					function patchStep(row, s) {
+						var meta = STEP[s.status] || { label: s.status, tone: 'neutral' };
+						row.setAttribute('data-tone', meta.tone);
+						row.querySelector('.step-num')?.setAttribute('data-tone', meta.tone);
+						var statusEl = row.querySelector('[data-step-status]');
+						if (statusEl) {
+							statusEl.setAttribute('data-tone', meta.tone);
+							statusEl.textContent = meta.label;
+						}
+						if (s.durationMs != null) {
+							var stepDurEl = row.querySelector('[data-step-dur]');
+							if (stepDurEl) stepDurEl.textContent = fmtDur(s.durationMs);
+						}
+						var seg = document.querySelector('[data-seg-idx="' + s.idx + '"]');
+						if (seg) seg.setAttribute('data-tone', meta.tone);
+					}
+
+					function tick() {
+						fetch('/api/runs/' + runId + '/status', { headers: { accept: 'application/json' } })
+							.then(function (r) {
+								return r.ok ? r.json() : null;
+							})
+							.then(function (data) {
+								if (!data) return schedule();
+								// Terminal: one reload to render trace/artifacts/triage, then stop.
+								if (!data.inProgress) {
+									location.reload();
+									return;
+								}
+								// A new step result appeared (the server renders one row per
+								// result, incrementally). We can patch existing rows in place,
+								// but a brand-new row must come from the server — reload once to
+								// pick it up. This fires only at step boundaries, not every tick,
+								// so the constant flicker is gone even though new steps still cost
+								// a single reload apiece.
+								var domSteps = document.querySelectorAll('[data-step-idx]').length;
+								if ((data.steps || []).length > domSteps) {
+									location.reload();
+									return;
+								}
+								var badge = document.querySelector('[data-run-badge]');
+								var label = document.querySelector('[data-run-label]');
+								var meta = RUN[data.status] || { label: data.status, tone: 'neutral' };
+								if (badge) badge.setAttribute('data-tone', meta.tone);
+								if (label) label.textContent = meta.label;
+								// Learn the start time (it's null while queued); update the
+								// ticker at once so the clock doesn't wait for the next second.
+								if (data.startedAt != null) {
+									startedAt = data.startedAt;
+									tickDuration();
+								}
+								var steps = data.steps || [];
+								steps.forEach(function (s) {
+									var row = document.querySelector('[data-step-idx="' + s.idx + '"]');
+									if (row) patchStep(row, s);
+								});
+								var passedEl = document.querySelector('[data-stat="steps-passed"]');
+								if (passedEl) {
+									var passed = steps.filter(function (s) {
+										return s.status === 'passed';
+									}).length;
+									passedEl.textContent = passed + ' / ' + steps.length;
+								}
+								schedule();
+							})
+							.catch(schedule);
+					}
+
+					function schedule() {
+						setTimeout(tick, 2000);
+					}
+
+					schedule();
+				})();
+			</script>
+		)
+	}
 </Layout>
 
 <style lang="scss">
@@ -331,6 +462,11 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 			font-weight: $weight-semibold;
 			letter-spacing: -0.01em;
 		}
+	}
+
+	// Push the retry/delete actions to the far end of the header row.
+	.head-actions {
+		margin-left: auto;
 	}
 
 	.run-id {
@@ -380,10 +516,18 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 	}
 
 	.stat-value {
+		display: flex;
+		align-items: center;
+		gap: space(2);
 		font-size: font-size('md');
 		font-weight: $weight-medium;
 		font-variant-numeric: tabular-nums;
 		overflow-wrap: anywhere;
+	}
+
+	// The Browser stat pairs a logo with its capitalized name.
+	.stat-text.browser {
+		text-transform: capitalize;
 	}
 
 	// ── Step timeline bar ───────────────────────────────────────────────────
@@ -562,8 +706,10 @@ if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/a
 
 	.step-status {
 		flex-shrink: 0;
-		font-size: font-size('xs');
+		font-size: font-size('2xs');
 		font-weight: $weight-medium;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 
 		&[data-tone='success'] {
 			color: var(--success-text);

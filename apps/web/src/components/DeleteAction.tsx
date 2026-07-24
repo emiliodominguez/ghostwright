@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { trpc } from '../lib/trpc';
+import { IconTrash } from './icons';
 import styles from './controls.module.scss';
 
 /** Delete a saved action, then refresh the page so the list updates. */
@@ -17,8 +18,8 @@ export default function DeleteAction(props: { id: string }) {
 	}
 
 	return (
-		<button type="button" onClick={remove} disabled={busy()} class={styles['delete-btn']}>
-			{busy() ? 'Deleting…' : 'Delete'}
+		<button type="button" title="Delete action" aria-label="Delete action" onClick={remove} disabled={busy()} class={`${styles['icon-btn']} ${styles['danger']}`}>
+			<IconTrash size={15} />
 		</button>
 	);
 }

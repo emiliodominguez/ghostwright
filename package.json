@@ -12,24 +12,28 @@
 		"build": "pnpm -r build",
 		"typecheck": "pnpm -r typecheck",
 		"format": "prettier --write .",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
 		"db:generate": "pnpm --filter @ghostwright/db generate",
 		"db:migrate": "pnpm --filter @ghostwright/db migrate",
-		"db:seed": "pnpm --filter @ghostwright/worker seed",
+		"db:seed": "pnpm --filter @ghostwright/devtools seed",
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"infra:down": "docker compose -f infra/docker-compose.yml down",
 		"web": "pnpm --filter @ghostwright/web dev",
-		"worker": "pnpm --filter @ghostwright/worker dev",
-		"scheduler": "pnpm --filter @ghostwright/scheduler dev"
+		"worker": "pnpm --filter @ghostwright/worker dev"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.17.0",
 		"@types/node": "^22.10.5",
+		"@vitest/coverage-v8": "4.1.10",
 		"eslint": "^9.17.0",
 		"eslint-config-prettier": "^9.1.0",
 		"prettier": "^3.4.2",
 		"tsup": "^8.3.5",
 		"tsx": "^4.19.2",
 		"typescript": "^5.7.3",
-		"typescript-eslint": "^8.19.0"
+		"typescript-eslint": "^8.19.0",
+		"vitest": "4.1.10"
 	}
 }

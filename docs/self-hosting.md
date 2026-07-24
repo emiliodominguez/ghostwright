@@ -5,11 +5,10 @@ local development machine.
 
 ## What you need to run
 
-Three application processes:
+Two application processes:
 
 - **web**, the dashboard and API
 - **worker**, the Playwright runner
-- **scheduler**, which enqueues scheduled runs
 
 Three backing services:
 
@@ -17,21 +16,20 @@ Three backing services:
 - **Redis** for the job queue
 - **An S3-compatible object store** (MinIO, or a managed S3) for artifacts
 
-Optionally, the observability stack (OpenTelemetry collector, Tempo, Prometheus, Grafana).
-
 ## The included Docker Compose stack
 
-`infra/docker-compose.yml` runs the backing services and the observability stack for local
-use. Start it with:
+`infra/docker-compose.yml` runs the backing services for local use. Start it with:
 
 ```bash
 pnpm infra:up
 ```
 
-This brings up libSQL, Redis, MinIO (with a bucket created for you), the OpenTelemetry
-collector, Tempo, Prometheus, Grafana, and a worker container. It is a good reference for a
-production compose file, but for production you will usually point the app at managed or
-hardened versions of these services.
+This brings up libSQL, Redis, and MinIO (with a bucket created for you). The compose file
+also defines a worker container behind a `worker` profile, so it stays off during local
+development (you run the worker on the host with `pnpm worker`); start it with
+`docker compose -f infra/docker-compose.yml --profile worker up`. The stack is a good
+reference for a production compose file, but for production you will usually point the app
+at managed or hardened versions of these services.
 
 Stop it with:
 
@@ -46,8 +44,8 @@ pnpm install
 pnpm build
 ```
 
-Then run each process from its build output. The web app is a standard Astro Node server, the
-worker and scheduler are Node programs. Provide the environment variables from
+Then run each process from its build output. The web app is a standard Astro Node server, and
+the worker is a Node program. Provide the environment variables from
 [configuration.md](configuration.md) to each.
 
 ## The worker needs a browser
@@ -70,13 +68,11 @@ Scale test throughput by running more worker instances or raising `WORKER_CONCUR
 - Put the web app behind a reverse proxy that terminates TLS.
 - Set `PUBLIC_BASE_URL` to the public URL of the dashboard so links and alerts are correct.
 - Use durable storage for libSQL and the object store. Artifacts and history live there.
-- Keep `GHOSTWRIGHT_BLOCK_PRIVATE_NETWORK` enabled unless you specifically need the worker to
-  reach internal hosts.
+- Set `GHOSTWRIGHT_BLOCK_PRIVATE_NETWORK=1` on shared or internet-exposed deployments, unless
+  you specifically need the worker to reach internal hosts (it is off by default).
 - Create API keys for any CI integrations rather than reusing the dashboard token.
 
-## Observability
+## Logging
 
-Each process exports OpenTelemetry traces to the collector, which forwards to Tempo.
-Prometheus scrapes metrics, and Grafana ships with provisioned dashboards under
-`infra/grafana`. Point `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` at your collector, or drop the
-observability stack entirely if you do not need it.
+Each process writes structured JSON logs to stdout. Control verbosity with `LOG_LEVEL`
+(`debug`, `info`, `warn`, `error`, or `silent`).

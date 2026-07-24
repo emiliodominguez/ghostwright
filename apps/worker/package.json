@@ -6,9 +6,7 @@
 	"scripts": {
 		"build": "tsup src/index.ts --format esm --clean",
 		"typecheck": "tsc --noEmit",
-		"dev": "tsx src/index.ts",
-		"demo": "tsx src/enqueue-demo.ts",
-		"seed": "tsx src/seed.ts"
+		"dev": "tsx src/index.ts"
 	},
 	"dependencies": {
 		"@ghostwright/ai": "workspace:*",
@@ -16,7 +14,7 @@
 		"@ghostwright/crypto": "workspace:*",
 		"@ghostwright/db": "workspace:*",
 		"@ghostwright/dsl": "workspace:*",
-		"@ghostwright/otel": "workspace:*",
+		"@ghostwright/logger": "workspace:*",
 		"@ghostwright/queue": "workspace:*",
 		"@playwright/test": "^1.61.1",
 		"bullmq": "^5.80.9",

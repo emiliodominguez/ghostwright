@@ -43,6 +43,9 @@ export const test = sqliteTable('test', {
 		.notNull()
 		.references(() => project.id),
 	name: text('name').notNull(),
+	// Folder this test lives in (null = top level / unfiled). Plain text to avoid a
+	// circular FK ordering issue with the folder table.
+	folderId: text('folder_id'),
 	// current TestVersion pointer; plain text to avoid a circular FK with test_version
 	currentVersionId: text('current_version_id'),
 	// per-test run configuration (JSON: TestSettings from @ghostwright/dsl)
@@ -63,12 +66,20 @@ export const testVersion = sqliteTable('test_version', {
 	createdAt: createdAt(),
 });
 
-export const suite = sqliteTable('suite', {
+// A folder for organizing tests. Nestable via `parentId` (a null parent is a
+// top-level folder). Replaces the never-used `suite` table.
+export const folder = sqliteTable('folder', {
 	id: id(),
 	projectId: text('project_id')
 		.notNull()
 		.references(() => project.id),
 	name: text('name').notNull(),
+	parentId: text('parent_id'),
+	// Whether the folder is collapsed in the tree UI. Persisted so the collapsed
+	// state survives reloads and is resolved server-side (no expand/collapse flicker).
+	collapsed: integer('collapsed', { mode: 'boolean' })
+		.notNull()
+		.$defaultFn(() => false),
 	createdAt: createdAt(),
 });
 
@@ -203,5 +214,42 @@ export const loginFlow = sqliteTable('login_flow', {
 	lastCapturedAt: integer('last_captured_at', { mode: 'timestamp_ms' }),
 	lastCaptureError: text('last_capture_error'),
 	cookieCount: integer('cookie_count'),
+	createdAt: createdAt(),
+});
+
+// A single capture attempt for a login flow — the observable, debuggable record of
+// running the flow's steps to grab a session. Mirrors `run`, but keyed to a login
+// flow instead of a test version, and adds `cookieCount` as the capture's payload.
+export const captureRun = sqliteTable('capture_run', {
+	id: id(),
+	loginFlowId: text('login_flow_id')
+		.notNull()
+		.references(() => loginFlow.id),
+	status: text('status', { enum: ['queued', 'running', 'passed', 'failed', 'errored'] })
+		.notNull()
+		.default('queued'),
+	// How many cookies the captured session held (the point of a capture).
+	cookieCount: integer('cookie_count'),
+	traceKey: text('trace_key'),
+	videoKey: text('video_key'),
+	screenshotKey: text('screenshot_key'),
+	error: text('error'),
+	startedAt: integer('started_at', { mode: 'timestamp_ms' }),
+	finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+	createdAt: createdAt(),
+});
+
+// Per-step result for a capture attempt. Mirrors `step_result` (no visual-check fields).
+export const captureStep = sqliteTable('capture_step', {
+	id: id(),
+	captureRunId: text('capture_run_id')
+		.notNull()
+		.references(() => captureRun.id),
+	idx: integer('idx').notNull(),
+	type: text('type').notNull(),
+	status: text('status', { enum: ['passed', 'failed', 'skipped'] }).notNull(),
+	durationMs: integer('duration_ms'),
+	screenshotKey: text('screenshot_key'),
+	error: text('error'),
 	createdAt: createdAt(),
 });

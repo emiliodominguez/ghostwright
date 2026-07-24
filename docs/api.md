@@ -1,6 +1,6 @@
-# API and CLI
+# API
 
-Ghostwright has a versioned REST API for automation and a small CLI that wraps it for CI.
+Ghostwright has a versioned REST API for automation.
 
 ## Authentication
 
@@ -47,42 +47,3 @@ curl -X POST \
   -H "Authorization: Bearer $GHOSTWRIGHT_API_KEY" \
   "https://ghostwright.example.com/api/v1/tests/<testId>/execute?immediate=1"
 ```
-
-## CLI
-
-The CLI is published as `@ghostwright/cli`. It runs a test and can fail the build when the
-test fails, which makes it a good fit for CI smoke tests.
-
-```bash
-export GHOSTWRIGHT_API_URL=https://ghostwright.example.com
-export GHOSTWRIGHT_API_KEY=gw_xxx
-
-npx @ghostwright/cli test execute <testId> --error-on-fail
-```
-
-### Flags
-
-| Flag | Effect |
-| --- | --- |
-| `--api-url <url>` | Instance URL, or set `GHOSTWRIGHT_API_URL` |
-| `--api-key <key>` | API key, or set `GHOSTWRIGHT_API_KEY` |
-| `--error-on-fail` | Exit with code 1 if the test fails |
-| `--error-on-screenshot-fail` | Exit with code 1 on a visual-diff failure |
-| `--immediate` | Do not wait for the result |
-| `--json` | Print the result as JSON |
-
-### GitHub Actions
-
-```yaml
-- name: Ghostwright smoke test
-  run: npx @ghostwright/cli test execute ${{ vars.GW_TEST_ID }} --error-on-fail
-  env:
-    GHOSTWRIGHT_API_URL: ${{ vars.GW_API_URL }}
-    GHOSTWRIGHT_API_KEY: ${{ secrets.GW_API_KEY }}
-```
-
-## MCP server
-
-The `@ghostwright/mcp` package is a Model Context Protocol server. It lets an AI agent list
-tests and trigger runs through the same API, so an assistant can run a check and read the
-result as part of a larger task.

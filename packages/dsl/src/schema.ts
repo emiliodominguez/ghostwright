@@ -23,6 +23,12 @@ const locatorFields = {
 	exact: z.boolean().optional(),
 	/** Pick the Nth match (0-based) when the strategy matches several elements. */
 	nth: z.number().int().optional(),
+	/**
+	 * Resolve this locator inside an iframe rather than the top document. The value
+	 * is a CSS selector for the frame element (e.g. `iframe`, or `iframe#app`). Used
+	 * for apps that render their UI inside an embedded frame.
+	 */
+	frame: z.string().optional(),
 };
 
 const STRATEGY_KEYS = ['role', 'text', 'placeholder', 'label', 'testId', 'altText', 'title', 'css', 'xpath', 'ref'] as const;
@@ -151,8 +157,17 @@ const stepVariants = z.discriminatedUnion('type', [
 	assertJsStep,
 ]);
 
-// A step is any variant, optionally gated by a JS/`{{var}}` condition (skipped when falsy).
-export const stepSchema = stepVariants.and(z.object({ condition: z.string().optional() }));
+// A step is any variant, optionally gated by a JS/`{{var}}` condition (skipped when falsy),
+// with optional per-step retry that overrides the test's default step-retry setting.
+export const stepSchema = stepVariants.and(
+	z.object({
+		condition: z.string().optional(),
+		/** Extra attempts for this step if it throws (0 = no retry). Overrides the test default. */
+		retries: z.number().int().nonnegative().optional(),
+		/** Delay (ms) between this step's retry attempts. Overrides the test default. */
+		retryDelayMs: z.number().int().nonnegative().optional(),
+	}),
+);
 
 export type Step = z.infer<typeof stepSchema>;
 export type StepType = Step['type'];

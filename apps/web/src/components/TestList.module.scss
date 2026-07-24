@@ -1,0 +1,366 @@
+@use '../styles/abstracts' as *;
+
+// Home-page test browser: a nestable folder tree + name search. Each test row is a
+// card holding a link (flexes to fill) plus inline actions; folders are collapsible
+// headers. Rows/folders indent by their tree depth via the `--depth` custom property.
+//
+// Selection checkboxes are hidden at rest (clean tree) and revealed on hover, or held
+// visible whenever any test is selected. They live inline and collapse to zero width
+// when hidden, so the row content sits flush left until you reach for selection.
+
+// The width a revealed checkbox occupies (a 1rem box + a little breathing room).
+$check-slot: 1.5rem;
+
+.browser {
+	display: flex;
+	flex-direction: column;
+	gap: space(4);
+}
+
+// ── Toolbar (search + new folder) ────────────────────────────────────────────
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+}
+
+.search {
+	@include field;
+	flex: 1;
+	min-width: 0;
+}
+
+.new-folder {
+	@include button-base;
+	flex-shrink: 0;
+	gap: space(1.5);
+	padding: space(2) space(3);
+	border: 1px solid var(--border);
+	background-color: var(--surface-1);
+	font-size: font-size('xs');
+	color: var(--text-muted);
+
+	&:hover {
+		border-color: var(--accent-border);
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+}
+
+// ── Selection bar (batch run) ──────────────────────────────────────────────
+// Floats over the bottom of the viewport rather than sitting in the list flow, so
+// showing/hiding it never shifts the tree. Centered as a self-contained pill.
+.selection-bar {
+	position: fixed;
+	left: 50%;
+	bottom: space(6);
+	z-index: z('popover');
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: space(3);
+	padding: space(2) space(2) space(2) space(4);
+	border: 1px solid var(--accent-border);
+	border-radius: radius('full');
+	background-color: var(--surface-2);
+	box-shadow: var(--shadow-lg);
+	animation: selection-bar-in $transition-base $ease;
+}
+
+@keyframes selection-bar-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, space(3));
+	}
+}
+
+.selection-count {
+	font-size: font-size('sm');
+	font-weight: $weight-medium;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.clear-sel {
+	@include button-base;
+	padding: space(1.5) space(3);
+	border: 1px solid var(--border);
+	background-color: transparent;
+	font-size: font-size('xs');
+	color: var(--text-muted);
+
+	&:hover {
+		border-color: var(--border-strong);
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+}
+
+.run-sel {
+	@include button-primary;
+	gap: space(1.5);
+	padding: space(1.5) space(3.5);
+	font-size: font-size('xs');
+
+	&:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+}
+
+.no-hits {
+	padding: space(6) space(2);
+	color: var(--text-subtle);
+	font-size: font-size('base');
+	text-align: center;
+}
+
+.test-list {
+	display: flex;
+	flex-direction: column;
+	gap: space(2);
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+// ── Folders ──────────────────────────────────────────────────────────────────
+.folder {
+	list-style: none;
+}
+
+.folder-head {
+	display: flex;
+	align-items: center;
+	// Indent the whole header (checkbox included) by depth, so a folder's checkbox
+	// lines up with its child rows' checkboxes one level in.
+	padding-left: calc(var(--depth, 0) * #{space(4)});
+
+	&:hover .folder-actions {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	// Reveal the select-all checkbox on hover, or whenever a selection is active.
+	&:hover .folder-check,
+	&.show-check .folder-check {
+		width: $check-slot;
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+.folder-toggle {
+	@include button-reset;
+	@include focusable;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	padding: space(2) space(2);
+	border-radius: radius('md');
+	color: var(--text);
+	transition: background-color $transition-base $ease;
+
+	&:hover {
+		background-color: var(--surface-2);
+	}
+}
+
+.folder-caret {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--text-faint);
+	transition: transform $transition-base $ease;
+
+	&.open {
+		transform: rotate(90deg);
+	}
+}
+
+.folder-name {
+	font-weight: $weight-semibold;
+	font-size: font-size('sm');
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.folder-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.25rem;
+	height: 1.25rem;
+	padding-inline: space(1.5);
+	border-radius: radius('full');
+	background-color: var(--surface-3);
+	color: var(--text-faint);
+	font-size: font-size('2xs');
+	font-variant-numeric: tabular-nums;
+}
+
+.folder-actions {
+	display: flex;
+	align-items: center;
+	gap: space(1);
+	flex-shrink: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity $transition-base $ease;
+}
+
+.icon-btn {
+	@include icon-button;
+}
+
+.danger {
+	// red-on-hover handled by the icon-button mixin's &.danger rule
+}
+
+.test-item {
+	@include card;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	padding-left: space(3);
+	padding-right: space(4);
+	// Nest the card under its folder (folders indent their header by the same scale).
+	margin-left: calc(var(--depth, 0) * #{space(4)});
+	transition:
+		border-color $transition-base $ease,
+		background-color $transition-base $ease;
+
+	&:hover {
+		border-color: var(--accent-border);
+		background-color: var(--surface-3);
+
+		.chevron {
+			color: var(--accent-text);
+			transform: translateX(2px);
+		}
+	}
+
+	// Reveal the row checkbox on hover, or whenever a selection is active.
+	&:hover .check,
+	&.show-check .check {
+		width: $check-slot;
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	&.selected {
+		border-color: var(--accent-border);
+		background-color: var(--surface-2);
+	}
+}
+
+// Inline selection checkboxes: collapsed to zero width and hidden at rest, expanding
+// to a small slot when revealed (hover / active selection). Overflow-hidden keeps the
+// input from spilling out of the collapsed slot.
+.check,
+.folder-check {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 0;
+	overflow: hidden;
+	opacity: 0;
+	pointer-events: none;
+	cursor: pointer;
+	transition:
+		width $transition-base $ease,
+		opacity $transition-base $ease;
+
+	input {
+		width: 1rem;
+		height: 1rem;
+		margin: 0;
+		cursor: pointer;
+		accent-color: var(--accent);
+	}
+}
+
+// The toolbar master checkbox is always visible (the deliberate entry point).
+.select-all {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 1.5rem;
+	cursor: pointer;
+
+	input {
+		width: 1rem;
+		height: 1rem;
+		margin: 0;
+		cursor: pointer;
+		accent-color: var(--accent);
+	}
+}
+
+// A last-run status dot that never ran yet: hollow instead of a solid neutral fill.
+.dot-empty {
+	background-color: transparent !important;
+	border: 1px solid var(--border-strong);
+}
+
+.test-link {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: space(2.5);
+	// Small left padding only — the card padding and (revealed) checkbox handle the
+	// inset, so the dot sits close to the checkbox rather than across a wide gap.
+	padding: space(3.5) space(4) space(3.5) space(1);
+	font-size: font-size('base');
+
+	&:focus-visible {
+		@include focus-ring;
+	}
+}
+
+.name {
+	font-weight: $weight-medium;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chevron {
+	order: 1; // pin last, after the actions
+	flex-shrink: 0;
+	color: var(--text-faint);
+	transition:
+		color $transition-base $ease,
+		transform $transition-base $ease;
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: space(1);
+	padding: space(10) space(6);
+	border: 1px dashed var(--border);
+	border-radius: radius('xl');
+	text-align: center;
+
+	svg {
+		color: var(--text-faint);
+		margin-bottom: space(2);
+	}
+
+	p {
+		color: var(--text);
+		font-weight: $weight-medium;
+		font-size: font-size('base');
+	}
+
+	span {
+		color: var(--text-subtle);
+		font-size: font-size('sm');
+	}
+}

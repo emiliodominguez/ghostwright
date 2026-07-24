@@ -82,6 +82,12 @@
 	@include field-label;
 }
 
+.field-hint {
+	margin: space(-1) 0 space(2);
+	font-size: font-size('xs');
+	color: var(--text-subtle);
+}
+
 .input {
 	@include field;
 }
@@ -103,6 +109,74 @@
 	font-size: font-size('base');
 	color: var(--text-muted);
 	cursor: pointer;
+}
+
+// Browser picker: the logo itself is the toggle. Grayscale + dim at rest, full color
+// when selected. The real checkbox is visually hidden but still drives the state and
+// keeps the control keyboard- and screen-reader-accessible.
+.browser-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: space(2);
+	font-size: font-size('base');
+	color: var(--text-faint);
+	cursor: pointer;
+	transition: color $transition-base $ease;
+
+	svg {
+		filter: grayscale(1);
+		opacity: 0.55;
+		transition:
+			filter $transition-base $ease,
+			opacity $transition-base $ease;
+	}
+
+	&:hover:not(.disabled) svg {
+		opacity: 0.8;
+	}
+
+	// Selected: name brightens and the logo shows in full color.
+	&.selected {
+		color: var(--text);
+
+		svg {
+			filter: none;
+			opacity: 1;
+		}
+	}
+
+	// Coming soon: not selectable, stays muted.
+	&.disabled {
+		cursor: not-allowed;
+	}
+
+	// Focus ring on the label when the hidden checkbox is focused (keyboard).
+	&:focus-within {
+		outline: 2px solid var(--accent-border);
+		outline-offset: 3px;
+		border-radius: radius('sm');
+	}
+}
+
+// Browser name beside its logo in the Settings picker.
+.browser-name {
+	text-transform: capitalize;
+}
+
+// Visually hidden but accessible (the real checkbox behind the logo toggle).
+.visually-hidden {
+	@include sr-only;
+}
+
+// "coming soon" tag next to a disabled browser option.
+.coming-soon {
+	padding: 1px space(1.5);
+	border-radius: radius('full');
+	border: 1px solid var(--border);
+	font-size: font-size('2xs');
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-faint);
 }
 
 .actions {
@@ -181,6 +255,11 @@
 	&:hover {
 		color: var(--danger-text);
 	}
+}
+
+// Compact icon button for row actions, shared with the other list surfaces.
+.icon-btn {
+	@include icon-button;
 }
 
 .form-row {

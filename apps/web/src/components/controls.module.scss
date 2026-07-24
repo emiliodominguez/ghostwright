@@ -2,16 +2,83 @@
 
 // Shared button variants for the small action islands (run / approve / delete).
 
+// Secondary header action (icon + label) used by Edit and Delete, so they read as
+// a matched pair sitting next to the primary "Run now" button.
+.secondary-btn {
+	@include button-base;
+	padding: space(2) space(3.5);
+	border: 1px solid var(--border);
+	background-color: transparent;
+	color: var(--text-muted);
+	font-size: font-size('sm');
+	font-weight: $weight-medium;
+
+	svg {
+		color: var(--text-faint);
+	}
+
+	&:hover:not(:disabled) {
+		border-color: var(--border-strong);
+		background-color: var(--surface-3);
+		color: var(--text);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+// The destructive variant of the secondary button (Delete): red on hover.
+.secondary-danger {
+	&:hover:not(:disabled) {
+		border-color: var(--danger-border);
+		background-color: var(--danger-soft);
+		color: var(--danger-text);
+
+		svg {
+			color: var(--danger-text);
+		}
+	}
+}
+
 .run {
 	@include button-base;
 	padding: space(2) space(4);
 	border: 1px solid transparent;
 	background-color: var(--success);
-	color: #052e1a;
+	// White reads clearly on the success green in BOTH themes; the old near-black
+	// text was low-contrast on the deeper light-theme green.
+	color: var(--success-contrast);
 	font-weight: $weight-medium;
 
 	&:hover:not(:disabled) {
-		background-color: color-mix(in srgb, var(--success) 85%, white);
+		// Deepen the green on hover (works in both themes); lightening toward white
+		// muddied the light-theme green.
+		background-color: color-mix(in srgb, var(--success) 88%, black);
+	}
+
+	// While a run is in flight the button is disabled but should still read as
+	// "actively working" rather than greyed-out-dead.
+	&:disabled {
+		opacity: 0.85;
+		cursor: default;
+	}
+}
+
+// Small inline spinner shown in place of the play icon while runs are active.
+.spinner {
+	display: inline-block;
+	width: 13px;
+	height: 13px;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: radius('full');
+	animation: run-spin 0.7s linear infinite;
+}
+
+@keyframes run-spin {
+	to {
+		transform: rotate(360deg);
 	}
 }
 
@@ -73,6 +140,18 @@
 	}
 }
 
+// Compact icon button for row actions, shared with the other list surfaces.
+// Pair with `.danger` for a destructive variant (red on hover), per the mixin.
+.icon-btn {
+	@include icon-button;
+}
+
+// Marker class so CSS Modules exports `danger`; the red-on-hover rule lives in the
+// icon-button mixin as `&.danger`, activated when both classes are on the element.
+.danger {
+	// intentionally empty — see above
+}
+
 .confirm {
 	display: inline-flex;
 	align-items: center;
@@ -110,4 +189,12 @@
 	&:hover {
 		color: var(--text-muted);
 	}
+}
+
+// Row of header actions on the run detail page (retry + delete).
+.run-actions {
+	display: flex;
+	align-items: center;
+	gap: space(2);
+	flex-wrap: wrap;
 }

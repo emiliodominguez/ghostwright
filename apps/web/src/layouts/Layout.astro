@@ -53,7 +53,6 @@ function isActive(href: string): boolean {
 					</span>
 					<span class="wordmark">Ghostwright</span>
 				</a>
-				<span class="tagline">watch your app, without writing code</span>
 				<nav class="nav" aria-label="Primary">
 					{
 						nav.map((item) => (
@@ -131,16 +130,6 @@ function isActive(href: string): boolean {
 
 	.mark {
 		display: inline-flex;
-	}
-
-	.tagline {
-		display: none;
-		color: var(--text-subtle);
-		font-size: font-size('xs');
-
-		@include at('sm') {
-			display: inline;
-		}
 	}
 
 	.nav {

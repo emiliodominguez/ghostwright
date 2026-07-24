@@ -137,7 +137,7 @@ export default function Select(props: Props) {
 				onKeyDown={onKeyDown}
 			>
 				<span class={styles['value']} classList={{ [styles['placeholder']]: !selectedLabel() }}>
-					{selectedLabel() || props.placeholder || 'Select…'}
+					{selectedLabel() || props.placeholder || 'Select'}
 				</span>
 				<svg
 					class={styles['chevron']}

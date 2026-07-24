@@ -1,0 +1,594 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StepSegments from '../../components/StepSegments.astro';
+import { createCaller } from '../../server/routers';
+import { runStatus, stepStatus, stripAnsi } from '../../lib/status';
+
+const { id } = Astro.params;
+const data = id ? await createCaller().loginFlows.captureRun({ id }) : null;
+if (!data?.run) return Astro.redirect('/logins');
+const { run, steps, descriptions, descriptionSegments, flow } = data;
+const inProgress = run.status === 'queued' || run.status === 'running';
+const traceSrc = run.traceKey ? `/trace-viewer/index.html?trace=${encodeURIComponent('/artifacts/' + run.traceKey)}` : null;
+const status = runStatus(run.status);
+
+const started = run.startedAt ?? run.createdAt;
+const totalMs = run.startedAt && run.finishedAt ? run.finishedAt.getTime() - run.startedAt.getTime() : null;
+const maxStepMs = Math.max(1, ...steps.map((s) => s.durationMs ?? 0));
+
+/** Compact duration string: 450ms · 2.0s · 1m 3s. */
+function fmtDur(ms: number | null): string {
+	if (ms == null) return 'None';
+	if (ms < 1000) return `${ms}ms`;
+	const s = ms / 1000;
+	if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+	const m = Math.floor(s / 60);
+	return `${m}m ${Math.round(s % 60)}s`;
+}
+
+const stats: { label: string; value: string }[] = [
+	{ label: 'Duration', value: fmtDur(totalMs) },
+	{ label: 'Cookies saved', value: run.cookieCount == null ? 'None' : String(run.cookieCount) },
+	{ label: 'Steps', value: String(steps.length) },
+	{ label: 'Started', value: new Date(started).toLocaleString() },
+];
+
+const artifacts: { label: string; href: string }[] = [];
+if (traceSrc) artifacts.push({ label: 'Open trace viewer', href: traceSrc });
+if (run.videoKey) artifacts.push({ label: 'Download video', href: `/artifacts/${run.videoKey}` });
+if (run.screenshotKey) artifacts.push({ label: 'Full-page screenshot', href: `/artifacts/${run.screenshotKey}` });
+---
+
+<Layout title={flow ? `${flow.name} capture` : `Capture ${run.id.slice(0, 8)}`} wide>
+	<header class="page-head">
+		<a href="/logins" class="back">
+			<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+			</svg>
+			{flow ? flow.name : 'logins'}
+		</a>
+		<div class="head-row">
+			<h1>Session capture</h1>
+			<span class="badge" data-tone={status.tone}>
+				{inProgress && <span class="dot" data-tone="running"></span>}
+				{status.label}
+			</span>
+		</div>
+		<p class="run-id">Capture {run.id.slice(0, 8)}</p>
+	</header>
+
+	{
+		inProgress && (
+			<p class="running-note">
+				<span class="dot" data-tone="running"></span>
+				Capturing the session. This page updates as each step finishes.
+			</p>
+		)
+	}
+
+	<section class="stats" aria-label="Capture summary">
+		{
+			stats.map((s) => (
+				<div class="stat">
+					<span class="stat-label">{s.label}</span>
+					<span class="stat-value">{s.value}</span>
+				</div>
+			))
+		}
+	</section>
+
+	{run.error && <pre class="error-block">{stripAnsi(run.error)}</pre>}
+
+	<section class="block">
+		<h2 class="section-title">Steps <span class="muted-count">{steps.length}</span></h2>
+		<ul class="steps">
+			{
+				steps.map((s) => {
+					const st = stepStatus(s.status);
+					const barPct = Math.max(1, ((s.durationMs ?? 0) / maxStepMs) * 100);
+					return (
+						<li class="step" data-tone={st.tone}>
+							<div class="step-head">
+								<span class="step-num" data-tone={st.tone}>
+									{s.idx + 1}
+								</span>
+								<span class="step-desc">{descriptionSegments[s.idx] ? <StepSegments segments={descriptionSegments[s.idx]} /> : (descriptions[s.idx] ?? s.type)}</span>
+								<span class="step-status" data-tone={st.tone}>{st.label}</span>
+								{s.durationMs != null && <span class="step-dur">{fmtDur(s.durationMs)}</span>}
+							</div>
+							{s.durationMs != null && (
+								<div class="step-bar" aria-hidden="true">
+									<span class="step-bar-fill" data-tone={st.tone} style={`width: ${barPct}%`} />
+								</div>
+							)}
+							{s.error && <p class="step-error">{stripAnsi(s.error)}</p>}
+							{s.screenshotKey && (
+								<a href={`/artifacts/${s.screenshotKey}`} target="_blank" rel="noopener" class="shot-link">
+									<img src={`/artifacts/${s.screenshotKey}`} alt={`step ${s.idx + 1}`} class="shot" loading="lazy" />
+									<span class="shot-hint">Open full size</span>
+								</a>
+							)}
+						</li>
+					);
+				})
+			}
+		</ul>
+	</section>
+
+	{
+		artifacts.length > 0 && (
+			<section class="block">
+				<h2 class="section-title">Artifacts</h2>
+				<div class="artifacts">
+					{artifacts.map((a) => (
+						<a class="artifact" href={a.href} target="_blank" rel="noopener">
+							{a.label}
+						</a>
+					))}
+				</div>
+			</section>
+		)
+	}
+
+	{
+		traceSrc && (
+			<section class="block">
+				<h2 class="section-title">Trace</h2>
+				<p class="trace-hint">An interactive replay of the capture. Press play or scrub the timeline to move through each moment frame by frame.</p>
+				<div class="trace-panel">
+					<div class="trace-bar">
+						<span class="trace-name">
+							<span class="dot" data-tone="neutral"></span>
+							Playwright trace
+						</span>
+						<a class="trace-open" href={traceSrc} target="_blank" rel="noopener">Open full screen</a>
+					</div>
+					<button type="button" class="trace-facade" data-trace-load>
+						<span class="facade-play">
+							<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+								<polygon points="6 4 20 12 6 20 6 4" />
+							</svg>
+						</span>
+						<span class="facade-title">Load interactive trace</span>
+						<span class="facade-sub">Replay the capture frame by frame: DOM snapshots, network, and console</span>
+					</button>
+					<iframe data-trace-src={traceSrc} class="trace" title="Playwright trace" hidden />
+				</div>
+			</section>
+		)
+	}
+
+	<script is:inline>
+		(function () {
+			var btn = document.querySelector('[data-trace-load]');
+			var frame = document.querySelector('iframe[data-trace-src]');
+			if (!btn || !frame) return;
+			function ensureTraceSW() {
+				if (!('serviceWorker' in navigator)) return Promise.resolve();
+				return navigator.serviceWorker
+					.register('/trace-viewer/sw.bundle.js', { scope: '/trace-viewer/' })
+					.then(function (reg) {
+						if (reg.active) return;
+						var sw = reg.installing || reg.waiting;
+						if (!sw) return;
+						return new Promise(function (resolve) {
+							sw.addEventListener('statechange', function () {
+								if (sw.state === 'activated') resolve();
+							});
+						});
+					})
+					.catch(function () {});
+			}
+			ensureTraceSW();
+			btn.addEventListener('click', function () {
+				btn.setAttribute('disabled', '');
+				ensureTraceSW().then(function () {
+					frame.src = frame.getAttribute('data-trace-src');
+					frame.removeAttribute('data-trace-src');
+					frame.hidden = false;
+					btn.remove();
+				});
+			});
+		})();
+	</script>
+
+	{inProgress && <script is:inline>setTimeout(() => location.reload(), 2000);</script>}
+</Layout>
+
+<style lang="scss">
+	@use '../../styles/abstracts' as *;
+
+	.page-head {
+		margin-bottom: space(6);
+	}
+
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: space(1);
+		max-width: 100%;
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+		transition: color $transition-base $ease;
+
+		&:hover {
+			color: var(--text-muted);
+		}
+	}
+
+	.head-row {
+		display: flex;
+		align-items: center;
+		gap: space(3);
+		flex-wrap: wrap;
+		margin-top: space(2);
+
+		h1 {
+			font-size: font-size('2xl');
+			font-weight: $weight-semibold;
+			letter-spacing: -0.01em;
+		}
+	}
+
+	.run-id {
+		margin-top: space(1);
+		font-size: font-size('xs');
+		color: var(--text-faint);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.running-note {
+		display: flex;
+		align-items: center;
+		gap: space(2);
+		margin-bottom: space(5);
+		font-size: font-size('base');
+		color: var(--running-text);
+	}
+
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: space(2);
+		margin-bottom: space(6);
+
+		@include at('sm') {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.stat {
+		@include card;
+		display: flex;
+		flex-direction: column;
+		gap: space(1);
+		padding: space(3) space(3.5);
+	}
+
+	.stat-label {
+		font-size: font-size('2xs');
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-faint);
+	}
+
+	.stat-value {
+		font-size: font-size('md');
+		font-weight: $weight-medium;
+		font-variant-numeric: tabular-nums;
+		overflow-wrap: anywhere;
+	}
+
+	.error-block {
+		margin-bottom: space(6);
+		padding: space(3);
+		border: 1px solid var(--danger-border);
+		border-radius: radius('lg');
+		background-color: var(--danger-soft);
+		color: var(--danger-text);
+		font-family: var(--font-mono);
+		font-size: font-size('xs');
+		overflow-x: auto;
+		@include thin-scrollbar;
+	}
+
+	.block {
+		margin-bottom: space(8);
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	.section-title {
+		display: flex;
+		align-items: center;
+		gap: space(2);
+		margin-bottom: space(4);
+		font-size: font-size('sm');
+		font-weight: $weight-semibold;
+		color: var(--text-subtle);
+	}
+
+	.muted-count {
+		font-weight: $weight-normal;
+		color: var(--text-faint);
+	}
+
+	.steps {
+		display: flex;
+		flex-direction: column;
+		gap: space(3);
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.step {
+		@include card;
+		padding: space(4);
+
+		&[data-tone='danger'] {
+			border-color: var(--danger-border);
+		}
+	}
+
+	.step-head {
+		display: flex;
+		align-items: center;
+		gap: space(3);
+		flex-wrap: wrap;
+	}
+
+	.step-num {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 1.5rem;
+		height: 1.5rem;
+		border-radius: radius('full');
+		background-color: var(--surface-3);
+		color: var(--text-muted);
+		font-size: font-size('xs');
+		font-weight: $weight-medium;
+		font-variant-numeric: tabular-nums;
+
+		&[data-tone='danger'] {
+			background-color: var(--danger-soft);
+			color: var(--danger-text);
+		}
+	}
+
+	.step-desc {
+		flex: 1;
+		min-width: 12rem;
+		font-size: font-size('base');
+		color: var(--text);
+	}
+
+	.step-status {
+		flex-shrink: 0;
+		font-size: font-size('2xs');
+		font-weight: $weight-medium;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+
+		&[data-tone='success'] {
+			color: var(--success-text);
+		}
+		&[data-tone='danger'] {
+			color: var(--danger-text);
+		}
+		&[data-tone='neutral'] {
+			color: var(--text-subtle);
+		}
+	}
+
+	.step-dur {
+		flex-shrink: 0;
+		font-size: font-size('xs');
+		color: var(--text-faint);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.step-bar {
+		height: 3px;
+		margin-top: space(2.5);
+		border-radius: radius('full');
+		background-color: var(--surface-3);
+		overflow: hidden;
+	}
+
+	.step-bar-fill {
+		display: block;
+		height: 100%;
+		border-radius: radius('full');
+		background-color: var(--border-strong);
+
+		&[data-tone='danger'] {
+			background-color: var(--danger);
+		}
+	}
+
+	.step-error {
+		margin-top: space(3);
+		padding: space(2) space(3);
+		border-radius: radius('md');
+		background-color: var(--danger-soft);
+		font-family: var(--font-mono);
+		font-size: font-size('xs');
+		color: var(--danger-text);
+		overflow-x: auto;
+		@include thin-scrollbar;
+	}
+
+	.shot-link {
+		display: inline-flex;
+		flex-direction: column;
+		gap: space(1);
+		margin-top: space(3);
+		width: fit-content;
+		max-width: 100%;
+	}
+
+	.shot {
+		max-height: 15rem;
+		max-width: 100%;
+		border: 1px solid var(--border);
+		border-radius: radius('md');
+		transition: border-color $transition-base $ease;
+	}
+
+	.shot-link:hover .shot {
+		border-color: var(--accent-border);
+	}
+
+	.shot-hint {
+		font-size: font-size('2xs');
+		color: var(--text-faint);
+	}
+
+	.artifacts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: space(2);
+	}
+
+	.artifact {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		padding: space(2) space(3.5);
+		border: 1px solid var(--border);
+		border-radius: radius('lg');
+		background-color: var(--surface-1);
+		font-size: font-size('xs');
+		color: var(--text-muted);
+		transition:
+			border-color $transition-base $ease,
+			color $transition-base $ease,
+			background-color $transition-base $ease;
+
+		&:hover {
+			border-color: var(--accent-border);
+			background-color: var(--surface-3);
+			color: var(--text);
+		}
+	}
+
+	.trace-hint {
+		margin-top: space(-2);
+		margin-bottom: space(3);
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+	}
+
+	.trace-panel {
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: radius('xl');
+		background-color: var(--bg-subtle);
+		box-shadow: var(--shadow-md);
+	}
+
+	.trace-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: space(3);
+		flex-wrap: wrap;
+		padding: space(2.5) space(3.5);
+		border-bottom: 1px solid var(--border);
+		background-color: var(--surface-2);
+	}
+
+	.trace-name {
+		display: inline-flex;
+		align-items: center;
+		gap: space(2);
+		font-size: font-size('xs');
+		font-weight: $weight-medium;
+		color: var(--text-muted);
+	}
+
+	.trace-open {
+		font-size: font-size('xs');
+		color: var(--accent-text);
+		transition: opacity $transition-base $ease;
+
+		&:hover {
+			opacity: 0.8;
+		}
+	}
+
+	.trace-facade {
+		@include button-reset;
+		@include focusable;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: space(2);
+		width: 100%;
+		height: min(52vh, 460px);
+		min-height: 300px;
+		padding: space(6);
+		background-color: var(--bg-subtle);
+		color: var(--text-muted);
+		text-align: center;
+		cursor: pointer;
+		transition: background-color $transition-base $ease;
+
+		&:hover {
+			background-color: var(--surface-3);
+
+			.facade-play {
+				border-color: var(--accent-border);
+				background-color: var(--accent-soft);
+				color: var(--accent-text);
+			}
+		}
+	}
+
+	.facade-play {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 3.25rem;
+		height: 3.25rem;
+		margin-bottom: space(1);
+		border: 1px solid var(--border);
+		border-radius: radius('full');
+		background-color: var(--surface-2);
+		color: var(--text-muted);
+		transition:
+			border-color $transition-base $ease,
+			background-color $transition-base $ease,
+			color $transition-base $ease;
+	}
+
+	.facade-title {
+		font-size: font-size('base');
+		font-weight: $weight-medium;
+		color: var(--text);
+	}
+
+	.facade-sub {
+		font-size: font-size('xs');
+		color: var(--text-subtle);
+	}
+
+	.trace {
+		display: block;
+		width: 100%;
+		height: min(70vh, 720px);
+		min-height: 440px;
+		border: none;
+		background-color: #fff;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+</style>

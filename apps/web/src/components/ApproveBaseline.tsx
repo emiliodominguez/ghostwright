@@ -23,7 +23,7 @@ export default function ApproveBaseline(props: { runId: string; stepIdx: number 
 			when={done()}
 			fallback={
 				<button type="button" onClick={approve} disabled={busy()} class={styles['approve']}>
-					{busy() ? 'Approving…' : 'Approve → update baseline'}
+					{busy() ? 'Approving…' : 'Approve and update baseline'}
 				</button>
 			}
 		>

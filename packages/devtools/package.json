@@ -1,0 +1,20 @@
+{
+	"name": "@ghostwright/devtools",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Local development tooling for Ghostwright: database seeding and demo job enqueuing. Not part of the runtime; never imported by app or worker code.",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"seed": "tsx src/seed.ts",
+		"seed:wonderly": "tsx src/seed-wonderly.ts",
+		"demo": "tsx src/enqueue-demo.ts"
+	},
+	"dependencies": {
+		"@ghostwright/crypto": "workspace:*",
+		"@ghostwright/db": "workspace:*",
+		"@ghostwright/dsl": "workspace:*",
+		"@ghostwright/queue": "workspace:*",
+		"drizzle-orm": "^0.45.2"
+	}
+}

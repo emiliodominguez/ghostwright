@@ -1,12 +1,16 @@
 import { interpolate, type VarLookup } from './interp';
 import type { Locator, Step, StepType } from './schema';
-import type { RunContext, StepLocator, StepPage } from './runtime';
+import type { RunContext, StepLocator, StepLocatorRoot, StepPage } from './runtime';
 
 export interface CompiledStep {
 	type: StepType;
 	run(page: StepPage, ctx: RunContext): Promise<void>;
 	/** When present, the step runs only if this resolves truthy; otherwise it's skipped. */
 	shouldRun?(page: StepPage, ctx: RunContext): Promise<boolean>;
+	/** Per-step retry override (undefined = use the test default). */
+	retries?: number;
+	/** Per-step retry delay override in ms (undefined = use the test default). */
+	retryDelayMs?: number;
 }
 
 /** Thrown by an `exit` step to end the run early; `pass` sets the verdict. */
@@ -42,21 +46,23 @@ function interpLoc(loc: Locator, ctx: RunContext): Locator {
 
 /** The single strategy field a locator uses, resolved to a Playwright locator (before `nth`). */
 function byStrategy(page: StepPage, loc: Locator): StepLocator {
+	// A `frame` resolves the strategy inside that iframe instead of the top document.
+	const root: StepLocatorRoot = loc.frame !== undefined ? page.frameLocator(loc.frame) : page;
 	const opts = loc.exact !== undefined ? { exact: loc.exact } : undefined;
 	if (loc.role !== undefined) {
 		const roleOpts = { ...(loc.name !== undefined ? { name: loc.name } : {}), ...(loc.exact !== undefined ? { exact: loc.exact } : {}) };
-		return page.getByRole(loc.role, Object.keys(roleOpts).length ? roleOpts : undefined);
+		return root.getByRole(loc.role, Object.keys(roleOpts).length ? roleOpts : undefined);
 	}
-	if (loc.text !== undefined) return page.getByText(loc.text, opts);
-	if (loc.placeholder !== undefined) return page.getByPlaceholder(loc.placeholder, opts);
-	if (loc.label !== undefined) return page.getByLabel(loc.label, opts);
-	if (loc.testId !== undefined) return page.getByTestId(loc.testId);
-	if (loc.altText !== undefined) return page.getByAltText(loc.altText, opts);
-	if (loc.title !== undefined) return page.getByTitle(loc.title, opts);
-	if (loc.css !== undefined) return page.locator(loc.css);
-	if (loc.xpath !== undefined) return page.locator(`xpath=${loc.xpath}`);
+	if (loc.text !== undefined) return root.getByText(loc.text, opts);
+	if (loc.placeholder !== undefined) return root.getByPlaceholder(loc.placeholder, opts);
+	if (loc.label !== undefined) return root.getByLabel(loc.label, opts);
+	if (loc.testId !== undefined) return root.getByTestId(loc.testId);
+	if (loc.altText !== undefined) return root.getByAltText(loc.altText, opts);
+	if (loc.title !== undefined) return root.getByTitle(loc.title, opts);
+	if (loc.css !== undefined) return root.locator(loc.css);
+	if (loc.xpath !== undefined) return root.locator(`xpath=${loc.xpath}`);
 	// `ref` fallback — Playwright's aria-ref engine (as used by _snapshotForAI).
-	return page.locator(`aria-ref=${loc.ref}`);
+	return root.locator(`aria-ref=${loc.ref}`);
 }
 
 /**
@@ -114,6 +120,8 @@ export function compile(step: Step): CompiledStep {
 		const cond = step.condition;
 		compiled.shouldRun = async (page, ctx) => Boolean(await page.evaluate(wrapJs(iv(cond, ctx))));
 	}
+	if (step.retries !== undefined) compiled.retries = step.retries;
+	if (step.retryDelayMs !== undefined) compiled.retryDelayMs = step.retryDelayMs;
 	return compiled;
 }
 
